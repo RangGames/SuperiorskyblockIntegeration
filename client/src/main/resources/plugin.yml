@@ -1,0 +1,9 @@
+name: SSB2ClientBridge
+main: wiki.creeper.superiorskyblockIntegeration.client.ClientPlugin
+version: ${project.version}
+api-version: '1.20'
+commands:
+  is:
+    description: Skyblock network command bridge
+    usage: /<command>
+    aliases: [island]

@@ -1,0 +1,44 @@
+# Redis and gateway configuration for the authoritative SSB2 server.
+mode: GATEWAY
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: ""
+  ssl: false
+  database: 0
+
+channels:
+  prefix: ssb.v1
+
+timeouts:
+  requestMs: 3000
+  responseMaxWaitMs: 5000
+
+security:
+  hmacSecret: change-me
+
+logging:
+  requestBodies: false
+
+gateway:
+  concurrency:
+    workers: 16
+  locks:
+    islandLockTtlMs: 2000
+  superiorSkyblock:
+    apiHookTimeoutMs: 1000
+
+client:
+  cache:
+    enabled: true
+    ttlSeconds: 10
+    maximumSize: 5000
+  ui:
+    localeDefault: ko_KR
+  retry:
+    attempts: 1
+    backoffMs: 250
+  velocity:
+    enabled: false
+    targetServer: skyblock

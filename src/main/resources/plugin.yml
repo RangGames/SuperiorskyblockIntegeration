@@ -1,0 +1,6 @@
+name: SuperiorskyblockIntegeration
+version: '1.0-SNAPSHOT'
+main: wiki.creeper.superiorskyblockIntegeration.SuperiorskyblockIntegeration
+api-version: '1.21'
+load: STARTUP
+description: rang

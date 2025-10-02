@@ -1,0 +1,6 @@
+name: SSB2GatewayBridge
+main: wiki.creeper.superiorskyblockIntegeration.gateway.GatewayPlugin
+version: ${project.version}
+api-version: '1.20'
+softdepend:
+  - SuperiorSkyblock2
