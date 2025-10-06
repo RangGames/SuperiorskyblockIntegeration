@@ -37,6 +37,14 @@
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <minimizeJar>false</minimizeJar>
+                            <filters>
+                                <filter>
+                                    <artifact>wiki.creeper:superiorskyblockintegeration-client</artifact>
+                                    <excludes>
+                                        <exclude>plugin.yml</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
@@ -51,6 +59,11 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>wiki.creeper</groupId>
+            <artifactId>superiorskyblockintegeration-client</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
             <scope>provided</scope>
@@ -58,6 +71,17 @@
         <dependency>
             <groupId>com.bgsoftware</groupId>
             <artifactId>SuperiorSkyblockAPI</artifactId>
+            <version>2025.1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/../libs/SuperiorSkyblock2-2025.1.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>provided</scope>
         </dependency>
     </dependencies>

@@ -1,0 +1,145 @@
+# 메시지 커스터마이징 파일
+# 색상 코드는 & 문자를 사용합니다.
+
+general:
+  command-label: "팜"
+  player-only: "&c해당 명령은 플레이어만 사용할 수 있습니다."
+  unknown-subcommand: "&c알 수 없는 하위 명령입니다: %s"
+  processing: "&6[Skyblock] 처리 중입니다..."
+  failure-format: "%s: %s"
+  error: "&c[Skyblock] 처리 실패: %s"
+  result-missing: "&c[Skyblock] 처리 실패: 결과가 없습니다."
+
+quest:
+  menu-disabled: "&c[Skyblock] 퀘스트 메뉴를 사용할 수 없는 서버입니다."
+  assign-usage: "&e사용법: /%s 퀘스트 발급 <일간|주간> <개수>"
+  assign-invalid-type: "&c지원하지 않는 퀘스트 유형입니다. 일간 또는 주간을 입력하세요."
+  assign-invalid-count: "&c퀘스트 개수는 양수여야 합니다."
+  list-usage: "&e사용법: /%s 퀘스트 목록 <일간|주간>"
+  list-invalid-type: "&c지원하지 않는 퀘스트 유형입니다. 일간 또는 주간을 입력하세요."
+  subcommands: "&e사용 가능한 하위 명령: 메뉴, 발급, 목록"
+
+invite:
+  usage: "&e사용법: /%s 초대 <플레이어>"
+  sent: "&a[Skyblock] 초대를 전송했습니다."
+  failure-prefix: "[Skyblock] 초대 실패"
+  created-target: "&6[Skyblock] %s 님이 섬 초대를 보냈습니다. /%s 초대목록 에서 확인하세요."
+  accepted-notify: "&a[Skyblock] %s 님이 초대를 수락했습니다. /%s 초대목록 에서 확인하세요."
+  rejected-notify: "&e[Skyblock] %s 님이 초대를 거절했습니다. /%s 초대목록 에서 확인하세요."
+  list-header: "&6받은 초대 목록"
+  list-empty: "&7받은 초대가 없습니다."
+  list-footer: "&eGUI를 열려면 /%s 초대목록 메뉴 를 사용하세요."
+
+invites:
+  failure-prefix: "[Skyblock] 초대 목록 조회 실패"
+
+accept:
+  success: "&a[Skyblock] 초대를 수락했습니다."
+  failure-prefix: "[Skyblock] 초대 수락 실패"
+
+deny:
+  success: "&e[Skyblock] 초대를 거절했습니다."
+  failure-prefix: "[Skyblock] 초대 거절 실패"
+
+members:
+  menu-unavailable: "&c[Skyblock] 구성원 메뉴를 사용할 수 없습니다."
+  failure-prefix: "[Skyblock] 멤버 목록 조회 실패"
+  header: "&6팜 구성원 목록"
+  empty: "&7등록된 구성원이 없습니다."
+  footer: "&eGUI를 열려면 /%s 구성원 메뉴 를 사용하세요."
+
+info:
+  cache: "&b[Skyblock] (캐시) 섬 이름: %s"
+  success: "&b[Skyblock] 섬 정보: %s"
+  failure-prefix: "[Skyblock] 섬 정보 조회 실패"
+
+ranking:
+  menu-unavailable: "&c[Skyblock] 순위 메뉴를 사용할 수 없습니다."
+  contribution-usage: "&e사용법: /%s 순위 기여도 <섬ID>"
+  contribution-failure-prefix: "[Skyblock] 기여도 조회 실패"
+  snapshot-permission: "&c[Skyblock] 해당 명령을 사용할 권한이 없습니다."
+  snapshot-usage: "&e사용법: /%s 순위 스냅샷 <기간ID> [표시이름] [제한]"
+  snapshot-success: "&a[Skyblock] 랭킹 스냅샷이 생성되었습니다."
+  snapshot-failure-prefix: "[Skyblock] 스냅샷 생성 실패"
+  page-failure-prefix: "[Skyblock] 순위 목록 조회 실패"
+  subcommands: "&e사용 가능한 하위 명령: 메뉴, 기여도, 스냅샷, 페이지"
+  top-header: "&6팜 순위"
+  top-empty: "&7순위 정보가 없습니다."
+  top-footer: "&eGUI를 열려면 /%s 순위 메뉴 를 사용하세요."
+  members-header: "&6팜 기여도"
+  members-empty: "&7기여도 정보가 없습니다."
+  members-footer: "&eGUI를 열려면 /%s 순위 기여도 [섬ID] 를 사용하세요."
+
+history:
+  menu-unavailable: "&c[Skyblock] 히스토리 메뉴를 사용할 수 없습니다."
+  page-usage: "&e사용법: /%s 히스토리 페이지 <번호>"
+  detail-usage: "&e사용법: /%s 히스토리 상세 <기간ID>"
+  detail-failure-prefix: "[Skyblock] 히스토리 상세 조회 실패"
+  list-failure-prefix: "[Skyblock] 히스토리 목록 조회 실패"
+  list-header: "&6히스토리 목록"
+  list-empty: "&7저장된 히스토리 기록이 없습니다."
+  list-footer: "&eGUI를 열려면 /%s 히스토리 메뉴 를 사용하세요."
+  detail-header: "&6[%s 순위 기록]"
+  detail-empty: "&7기록된 순위가 없습니다."
+  subcommands: "&e사용 가능한 하위 명령: 메뉴, 페이지, 상세"
+
+rewards:
+  menu-unavailable: "&c[Skyblock] 보상 메뉴를 사용할 수 없습니다."
+  failure-prefix: "[Skyblock] 보상 정보를 불러오지 못했습니다"
+  header: "&6팜 순위 보상"
+  empty: "&7등록된 보상 구간이 없습니다."
+
+shop:
+  menu-unavailable: "&c[Skyblock] 상점 메뉴를 사용할 수 없습니다."
+  failure-prefix: "[Skyblock] 상점 정보를 불러오지 못했습니다"
+  header: "&6팜 상점"
+  empty: "&7등록된 상점 아이템이 없습니다."
+
+border:
+  menu-unavailable: "&c[Skyblock] 경계선 메뉴를 사용할 수 없습니다."
+  toggle-success: "&6[Skyblock] 경계선이 %s되었습니다."
+  failure-toggle-prefix: "[Skyblock] 경계선 토글 실패"
+  color-usage: "&e사용법: /%s 경계 색상 <초록|파랑|빨강>"
+  color-success: "&6[Skyblock] 경계선 색상이 %s 로 변경되었습니다."
+  color-failure-prefix: "[Skyblock] 경계선 색상 변경 실패"
+  subcommands: "&e사용 가능한 하위 명령: 메뉴, 토글, 색상"
+
+disband:
+  confirm: "&e정말로 섬을 해체하려면 /%s 해체 확인 을 입력하세요."
+  success: "&c[Skyblock] 섬을 해체했습니다."
+  failure-prefix: "[Skyblock] 섬 해체 실패"
+
+admin:
+  permission-required: "&c[Skyblock] 관리자 권한이 필요합니다."
+  quest-usage: "&e사용법: /%s 관리자 퀘스트 발급 <일간|주간> <개수>"
+  quest-menu-unavailable: "&c[Skyblock] 이 서버에서는 퀘스트 발급 메뉴를 사용할 수 없습니다."
+  quest-invalid-type: "&c지원하지 않는 퀘스트 유형입니다. 일간 또는 주간을 입력하세요."
+  quest-invalid-count: "&c퀘스트 개수는 양수여야 합니다."
+  snapshot-usage: "&e사용법: /%s 관리자 순위 스냅샷 <기간ID> [표시이름] [제한]"
+  snapshot-success: "&a[Skyblock] 랭킹 스냅샷이 생성되었습니다."
+  snapshot-failure-prefix: "[Skyblock] 스냅샷 생성 실패"
+  help-lines:
+    - "&6[관리자 명령]"
+    - "&e/%s 관리자 퀘스트 발급 <일간|주간> <개수> &7- 퀘스트 수동 발급"
+    - "&e/%s 관리자 순위 스냅샷 <기간ID> [표시이름] [제한] &7- 랭킹 스냅샷 생성"
+
+list:
+  header-format: "&6[%s - 페이지 %d/%d]"
+
+help:
+  header-title: "/%s 도움말"
+  empty: "&7표시할 도움말이 없습니다."
+  footer: "&e다음 페이지: /%s 도움말 <페이지>"
+  main:
+    - "&e/%s 메뉴 &7- 팜 GUI 열기"
+    - "&e/%s 퀘스트 <메뉴|발급|목록> &7- 퀘스트 관리"
+    - "&e/%s 초대 <플레이어> &7- 팜 초대"
+    - "&e/%s 초대목록 [페이지] &7- 받은 초대 확인"
+    - "&e/%s 구성원 [페이지] &7- 구성원 목록"
+    - "&e/%s 순위 [페이지] &7- 팜 순위 보기"
+    - "&e/%s 히스토리 [페이지] &7- 순위 기록 확인"
+    - "&e/%s 보상 &7- 순위 보상 확인"
+    - "&e/%s 상점 &7- 팜 상점 확인"
+    - "&e/%s 경계 <메뉴|토글|색상> &7- 월드보더 제어"
+    - "&e/%s 해체 &7- 섬 해체"
+    - "&e/%s 관리자 &7- 관리자 전용 명령"

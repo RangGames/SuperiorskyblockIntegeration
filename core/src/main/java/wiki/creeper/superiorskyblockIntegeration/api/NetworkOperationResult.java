@@ -22,7 +22,7 @@ public final class NetworkOperationResult {
                                    String errorMessage,
                                    boolean retryable) {
         this.success = success;
-        this.data = data;
+        this.data = data != null ? data.deepCopy() : new JsonObject();
         this.errorCode = errorCode;
         this.errorMessage = errorMessage;
         this.retryable = retryable;
@@ -31,13 +31,17 @@ public final class NetworkOperationResult {
     public static NetworkOperationResult fromMessage(RedisMessage message) {
         JsonObject dataCopy = message.data().deepCopy();
         if (message.ok()) {
-            return new NetworkOperationResult(true, dataCopy, null, null, false);
+            return success(dataCopy);
         }
         JsonObject error = message.error();
         String code = error.has("code") ? error.get("code").getAsString() : "UNKNOWN";
         String messageText = error.has("message") ? error.get("message").getAsString() : "";
         boolean retryable = error.has("retryable") && error.get("retryable").getAsBoolean();
         return new NetworkOperationResult(false, dataCopy, code, messageText, retryable);
+    }
+
+    public static NetworkOperationResult success(JsonObject data) {
+        return new NetworkOperationResult(true, data != null ? data.deepCopy() : new JsonObject(), null, null, false);
     }
 
     public static NetworkOperationResult failure(String code, String message, boolean retryable) {

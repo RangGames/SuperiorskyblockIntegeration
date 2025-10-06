@@ -4,6 +4,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.logging.Level;
 
+import wiki.creeper.superiorskyblockIntegeration.client.lang.Messages;
 import wiki.creeper.superiorskyblockIntegeration.common.ComponentLifecycle;
 import wiki.creeper.superiorskyblockIntegeration.config.PluginConfig;
 import wiki.creeper.superiorskyblockIntegeration.redis.RedisManager;
@@ -13,6 +14,7 @@ public final class ClientPlugin extends JavaPlugin {
     private PluginConfig configuration;
     private RedisManager redisManager;
     private ComponentLifecycle application;
+    private Messages messages;
 
     @Override
     public void onEnable() {
@@ -25,6 +27,8 @@ public final class ClientPlugin extends JavaPlugin {
             return;
         }
 
+        messages = new Messages(this);
+
         redisManager = new RedisManager(this, configuration.redis());
         try {
             redisManager.start();
@@ -34,7 +38,11 @@ public final class ClientPlugin extends JavaPlugin {
             return;
         }
 
-        application = new ClientApplication(this, configuration, redisManager);
+        if (configuration.client().velocity().enabled()) {
+            getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        }
+
+        application = new ClientApplication(this, configuration, redisManager, messages);
         application.start();
         getLogger().info("SuperiorSkyblock client component started");
     }
@@ -50,6 +58,9 @@ public final class ClientPlugin extends JavaPlugin {
         }
         if (redisManager != null) {
             redisManager.stop();
+        }
+        if (configuration != null && configuration.client().velocity().enabled()) {
+            getServer().getMessenger().unregisterOutgoingPluginChannel(this, "BungeeCord");
         }
     }
 }

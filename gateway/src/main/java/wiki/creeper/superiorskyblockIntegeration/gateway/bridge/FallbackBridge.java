@@ -32,6 +32,11 @@ final class FallbackBridge implements SuperiorSkyblockBridge {
     }
 
     @Override
+    public GatewayResponse listPendingInvites(UUID actor, JsonObject payload) {
+        return notAvailable();
+    }
+
+    @Override
     public GatewayResponse getIslandInfo(UUID requester, Optional<String> ownerIdentifier, JsonObject payload) {
         return notAvailable();
     }
@@ -49,6 +54,51 @@ final class FallbackBridge implements SuperiorSkyblockBridge {
     @Override
     public Map<UUID, UUID> snapshotPlayerIslands() {
         return Map.of();
+    }
+
+    @Override
+    public boolean canManageIslandQuests(UUID playerUuid) {
+        return false;
+    }
+
+    @Override
+    public int memberCount(UUID islandUuid) {
+        return 0;
+    }
+
+    @Override
+    public IslandDetails describeIsland(UUID islandUuid) {
+        return null;
+    }
+
+    @Override
+    public java.util.Optional<String> lookupPlayerName(String uuid) {
+        return java.util.Optional.empty();
+    }
+
+    @Override
+    public GatewayResponse toggleWorldBorder(UUID playerUuid) {
+        return notAvailable();
+    }
+
+    @Override
+    public GatewayResponse setBorderColor(UUID playerUuid, String color) {
+        return notAvailable();
+    }
+
+    @Override
+    public GatewayResponse borderState(UUID playerUuid) {
+        return notAvailable();
+    }
+
+    @Override
+    public void broadcastIslandMessage(UUID islandUuid, java.util.List<String> messages) {
+        // ignored – SuperiorSkyblock is not available
+    }
+
+    @Override
+    public GatewayResponse disbandIsland(UUID actorUuid) {
+        return notAvailable();
     }
 
     private GatewayResponse notAvailable() {

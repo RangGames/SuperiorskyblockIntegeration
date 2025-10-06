@@ -28,4 +28,22 @@ public final class NetworkSkyblockAPI {
     public static boolean isAvailable() {
         return service().isPresent();
     }
+
+    public static Optional<PlayerMetadataService> metadataService() {
+        ServicesManager services = Bukkit.getServer().getServicesManager();
+        PlayerMetadataService service = services.load(PlayerMetadataService.class);
+        return Optional.ofNullable(service);
+    }
+
+    public static Optional<PlayerProfileService> profileService() {
+        ServicesManager services = Bukkit.getServer().getServicesManager();
+        PlayerProfileService service = services.load(PlayerProfileService.class);
+        return Optional.ofNullable(service);
+    }
+
+    public static Optional<PlayerIslandService> islandService() {
+        ServicesManager services = Bukkit.getServer().getServicesManager();
+        PlayerIslandService service = services.load(PlayerIslandService.class);
+        return Optional.ofNullable(service);
+    }
 }

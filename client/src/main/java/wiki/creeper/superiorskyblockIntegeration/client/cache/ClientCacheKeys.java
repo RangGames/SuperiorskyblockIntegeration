@@ -15,4 +15,8 @@ public final class ClientCacheKeys {
     public static String members(String islandId) {
         return "members:" + islandId;
     }
+
+    public static String invites(String playerUuid) {
+        return "invites:" + playerUuid;
+    }
 }

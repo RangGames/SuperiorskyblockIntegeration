@@ -60,6 +60,7 @@ public final class ClientRequestDispatcher {
             payloadCustomizer.accept(request);
         }
 
+        request.compressDataIfNeeded(config.redis().messageCompressionThreshold());
         security.sign(request);
 
         CompletableFuture<RedisMessage> future = pendingRequests.register(

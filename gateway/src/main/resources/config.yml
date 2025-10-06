@@ -1,44 +1,172 @@
-# Redis and gateway configuration for the authoritative SSB2 server.
+# 플러그인이 현재 서버에서 어떤 역할을 수행하는지 지정합니다.
+# GATEWAY 모드는 SuperiorSkyblock2 가 설치된 메인 서버에서만 사용하세요.
 mode: GATEWAY
 
+# Redis 연결 및 메시지 압축 설정입니다.
 redis:
+  # Redis 호스트 주소 (IP 혹은 도메인)
   host: 127.0.0.1
+  # Redis 포트 번호
   port: 6379
+  # 인증 비밀번호 (없으면 빈 문자열 유지)
   password: ""
+  # TLS/SSL 연결 사용 여부
   ssl: false
+  # 사용할 Redis 데이터베이스 인덱스
   database: 0
+  # 요청/응답 JSON 이 이 값을 초과하면 압축하여 전송합니다 (바이트 단위)
+  compressionThreshold: 16384
 
+# 게이트웨이와 메시지를 주고 받을 때 사용할 채널 접두사입니다.
 channels:
+  # 여러 플러그인이 동일한 Redis 를 공유할 때 충돌을 막기 위한 네임스페이스입니다.
   prefix: ssb.v1
 
+# Redis 요청/응답에 대한 타임아웃 값입니다.
 timeouts:
+  # 클라이언트 요청을 처리할 때 허용되는 최대 대기 시간 (밀리초)
   requestMs: 3000
+  # 응답을 기다리는 최대 시간. 초과 시 실패로 처리됩니다 (밀리초)
   responseMaxWaitMs: 5000
 
+# Redis 메시지 위·변조를 방지하기 위한 HMAC 서명 키입니다.
 security:
+  # 모든 서버에서 동일한 값으로 유지해야 안전하게 통신할 수 있습니다.
   hmacSecret: change-me
 
+# 추가 디버깅이 필요할 때 요청 본문 로깅을 활성화할 수 있습니다.
 logging:
+  # true 로 설정하면 Redis 요청 payload 를 콘솔에 출력합니다 (주의: 민감 정보 노출 가능)
   requestBodies: false
+  # true 로 설정하면 Redis pub/sub 수신/발신 로그를 상세하게 출력합니다.
+  redis: false
 
+# 게이트웨이 런타임, 데이터베이스, 보상 설정입니다.
 gateway:
+  database:
+    # 사용할 데이터베이스 종류입니다. 현재는 mysql 만 지원합니다.
+    type: mysql
+    # 데이터베이스 호스트 주소
+    host: 127.0.0.1
+    # 데이터베이스 포트 번호
+    port: 3306
+    # 사용할 스키마(데이터베이스) 이름
+    name: ssb_integration
+    # 접속 계정 아이디
+    username: root
+    # 접속 계정 비밀번호
+    password: ""
+    hikari:
+      # HikariCP 풀의 최대 커넥션 수입니다.
+      maximumPoolSize: 10
+      # 최소 유휴 커넥션 수입니다.
+      minimumIdle: 2
+      # 커넥션을 빌릴 때 기다릴 최대 시간 (밀리초)
+      connectionTimeoutMs: 5000
+      # 유휴 상태 커넥션을 풀에서 제거하기까지의 시간 (밀리초)
+      idleTimeoutMs: 600000
   concurrency:
+    # Redis 요청을 비동기로 처리할 워커 스레드 개수입니다.
     workers: 16
   locks:
+    # 섬 관련 연산을 잠글 때 사용하는 TTL 값입니다 (밀리초).
     islandLockTtlMs: 2000
   superiorSkyblock:
+    # SuperiorSkyblock API 호출이 메인 스레드에서 기다릴 최대 시간입니다 (밀리초).
     apiHookTimeoutMs: 1000
+  rewards:
+    # farmRanking: 시즌 보상 미리보기/지급에 사용하는 구간 정의입니다.
+    farmRanking:
+      # 각 항목은 순위 범위와 지급 보상을 나타냅니다.
+      - minRank: 1
+        maxRank: 1
+        # 보상 지급 시 사용할 칭호 텍스트입니다.
+        title: "&c&l[1위]"
+        # 보상 아이콘으로 사용할 아이템 유형입니다.
+        icon: NETHER_STAR
+        # 달빛 지급량입니다.
+        moonlight: 500000
+        # 팜 포인트 지급량입니다.
+        farmPoints: 1000
+        # GUI 에 표시될 로어 텍스트입니다.
+        lore:
+          - "&7추가 칭호 및 보상은 추후 공지"
+      - minRank: 2
+        maxRank: 2
+        title: "&b&l[2위]"
+        icon: DIAMOND
+        moonlight: 300000
+        farmPoints: 700
+      - minRank: 3
+        maxRank: 3
+        title: "&a&l[3위]"
+        icon: EMERALD
+        moonlight: 200000
+        farmPoints: 500
+      - minRank: 4
+        maxRank: 10
+        title: "&a&l[4~10위]"
+        icon: GOLD_INGOT
+        moonlight: 100000
+        farmPoints: 250
+  shop:
+    # 팜 상점 GUI 에 노출할 상품 목록입니다.
+    items:
+      - slot: 11
+        # 인벤토리에서 표시될 아이템 이름입니다.
+        title: "&a팜 칭호"
+        # 인벤토리 아이콘 재료입니다.
+        icon: BOOK
+        # 결제에 사용할 화폐 타입 (moonlight, farmpoint, none 중 하나).
+        currency: moonlight
+        # 아이템 가격입니다.
+        price: 150000
+        # GUI 로어 설명입니다.
+        lore:
+          - "&7팜 칭호를 구매합니다."
+        # 클릭 시 실행할 명령어입니다.
+        command: "farmshop buy title1"
+        # 상품 사용 여부입니다.
+        enabled: true
+      - slot: 13
+        title: "&d팜 포션"
+        icon: POTION
+        currency: farmpoint
+        price: 400
+        lore:
+          - "&7팜 포션을 구매합니다."
+          - "&f지속시간 1시간"
+        command: "farmshop buy potion1"
+        enabled: true
+      - slot: 15
+        title: "&e곧 공개"
+        icon: BARRIER
+        currency: none
+        price: 0
+        lore:
+          - "&7새로운 상품이 준비 중입니다."
+        command: ""
+        enabled: false
 
+# 클라이언트와 동일한 캐시/재시도/GUI 기본 설정입니다.
 client:
   cache:
+    # Redis 호출 결과를 로컬 메모리에 캐싱할지 여부입니다.
     enabled: true
+    # 캐시된 항목의 기본 생존 시간(초)입니다.
     ttlSeconds: 10
+    # 캐시에 저장할 수 있는 최대 항목 수입니다.
     maximumSize: 5000
   ui:
+    # GUI 기본 로케일. 플레이어 로케일 정보를 얻지 못할 때 사용됩니다.
     localeDefault: ko_KR
   retry:
+    # 네트워크 요청이 실패했을 때 자동으로 재시도할 횟수입니다.
     attempts: 1
+    # 재시도 사이의 대기 시간(밀리초)입니다.
     backoffMs: 250
   velocity:
+    # Velocity/BungeeCord 네트워크로 자동 이동을 사용할지 여부입니다.
     enabled: false
+    # 사용 시 플레이어를 이동시킬 대상 서버 이름입니다.
     targetServer: skyblock

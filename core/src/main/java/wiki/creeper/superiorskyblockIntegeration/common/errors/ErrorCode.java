@@ -21,7 +21,11 @@ public enum ErrorCode {
     ALREADY_MEMBER,
     TARGET_OFFLINE,
     COOLDOWN_ACTIVE,
-    UNKNOWN_OPERATION;
+    UNKNOWN_OPERATION,
+    QUEST_ALREADY_ASSIGNED,
+    QUEST_NOT_ASSIGNED,
+    QUEST_NOT_FOUND,
+    QUEST_PERMISSION_DENIED;
 
     public String code() {
         return name();

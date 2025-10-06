@@ -2,19 +2,27 @@ package wiki.creeper.superiorskyblockIntegeration.gateway.bridge;
 
 import com.bgsoftware.superiorskyblock.api.SuperiorSkyblock;
 import com.bgsoftware.superiorskyblock.api.SuperiorSkyblockAPI;
+import com.bgsoftware.superiorskyblock.api.enums.BorderColor;
+import com.bgsoftware.superiorskyblock.api.events.IslandInviteEvent;
+import com.bgsoftware.superiorskyblock.api.events.IslandJoinEvent;
 import com.bgsoftware.superiorskyblock.api.handlers.GridManager;
 import com.bgsoftware.superiorskyblock.api.handlers.PlayersManager;
 import com.bgsoftware.superiorskyblock.api.handlers.RolesManager;
 import com.bgsoftware.superiorskyblock.api.island.Island;
+import com.bgsoftware.superiorskyblock.api.island.IslandPrivilege;
 import com.bgsoftware.superiorskyblock.api.island.PlayerRole;
 import com.bgsoftware.superiorskyblock.api.island.container.IslandsContainer;
 import com.bgsoftware.superiorskyblock.api.wrappers.SuperiorPlayer;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+
 import java.math.BigDecimal;
 import java.util.Collection;
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -56,17 +64,38 @@ final class ApiSuperiorSkyblockBridge implements SuperiorSkyblockBridge {
             throw new GatewayException(ErrorCode.TARGET_OFFLINE, "Target player not found");
         }
 
+        if (actor.equals(target)) {
+            throw new GatewayException(ErrorCode.BAD_REQUEST, "Cannot invite yourself");
+        }
+
+        IslandPrivilege invitePrivilege = IslandPrivilege.getByName("INVITE_MEMBER");
+        if (invitePrivilege != null && !actor.hasPermission(invitePrivilege)) {
+            throw new GatewayException(ErrorCode.FORBIDDEN, "Actor lacks invite privilege");
+        }
+
         if (island.isMember(target)) {
             throw new GatewayException(ErrorCode.ALREADY_MEMBER, "Target already a member");
         }
         if (island.isInvited(target)) {
             throw new GatewayException(ErrorCode.INVITE_ALREADY_EXISTS, "Invite already pending");
         }
+        if (target.getIsland() != null) {
+            throw new GatewayException(ErrorCode.ALREADY_MEMBER, "Target already belongs to an island");
+        }
+        if (island.isBanned(target)) {
+            throw new GatewayException(ErrorCode.FORBIDDEN, "Target is banned from this island");
+        }
 
         int teamLimit = island.getTeamLimit();
         List<SuperiorPlayer> members = members(island);
         if (teamLimit > 0 && members.size() >= teamLimit) {
             throw new GatewayException(ErrorCode.MEMBER_LIMIT_REACHED, "Island member limit reached");
+        }
+
+        IslandInviteEvent inviteEvent = new IslandInviteEvent(actor, target, island);
+        Bukkit.getPluginManager().callEvent(inviteEvent);
+        if (inviteEvent.isCancelled()) {
+            throw new GatewayException(ErrorCode.CONFLICT, "Island invite was cancelled by another plugin");
         }
 
         island.inviteMember(target);
@@ -113,6 +142,12 @@ final class ApiSuperiorSkyblockBridge implements SuperiorSkyblockBridge {
             defaultRole = actor.getPlayerRole();
         }
 
+        IslandJoinEvent joinEvent = new IslandJoinEvent(actor, island, IslandJoinEvent.Cause.INVITE);
+        Bukkit.getPluginManager().callEvent(joinEvent);
+        if (joinEvent.isCancelled()) {
+            throw new GatewayException(ErrorCode.CONFLICT, "Island join was cancelled by another plugin");
+        }
+
         island.addMember(actor, defaultRole);
         island.revokeInvite(actor);
 
@@ -124,6 +159,11 @@ final class ApiSuperiorSkyblockBridge implements SuperiorSkyblockBridge {
         data.addProperty("role", defaultRole != null ? defaultRole.getName() : "UNKNOWN");
         data.addProperty("memberUuid", actorUuid.toString());
         data.addProperty("memberName", actor.getName());
+        SuperiorPlayer inviter = island.getOwner();
+        if (inviter != null) {
+            data.addProperty("inviterUuid", inviter.getUniqueId().toString());
+            data.addProperty("inviterName", inviter.getName());
+        }
         data.addProperty("membersCount", updatedMembers.size());
         data.addProperty("membersLimit", teamLimit);
         data.add("members", membersToJsonArray(updatedMembers));
@@ -145,7 +185,43 @@ final class ApiSuperiorSkyblockBridge implements SuperiorSkyblockBridge {
         data.addProperty("islandName", island.getName());
         data.addProperty("memberUuid", actorUuid.toString());
         data.addProperty("memberName", actor.getName());
+        SuperiorPlayer owner = island.getOwner();
+        if (owner != null) {
+            data.addProperty("inviterUuid", owner.getUniqueId().toString());
+            data.addProperty("inviterName", owner.getName());
+        }
         data.addProperty("ok", true);
+        return GatewayResponse.ok(data);
+    }
+
+    @Override
+    public GatewayResponse listPendingInvites(UUID actorUuid, JsonObject payload) {
+        SuperiorPlayer actor = requirePlayer(actorUuid, "actor");
+        List<Island> invites = actor.getInvites();
+        JsonObject data = new JsonObject();
+        JsonArray array = new JsonArray();
+        for (Island invitedIsland : invites) {
+            JsonObject json = new JsonObject();
+            UUID islandUuid = invitedIsland.getUniqueId();
+            json.addProperty("islandId", islandUuid.toString());
+            String name = invitedIsland.getName();
+            if (name != null) {
+                json.addProperty("islandName", name);
+            }
+            SuperiorPlayer owner = invitedIsland.getOwner();
+            if (owner != null) {
+                json.addProperty("ownerUuid", owner.getUniqueId().toString());
+                json.addProperty("ownerName", owner.getName());
+            }
+            json.addProperty("membersCount", invitedIsland.getIslandMembers(true).size());
+            json.addProperty("membersLimit", invitedIsland.getTeamLimit());
+            json.addProperty("level", invitedIsland.getIslandLevel() != null
+                    ? invitedIsland.getIslandLevel().doubleValue()
+                    : 0.0D);
+            array.add(json);
+        }
+        data.add("invites", array);
+        data.addProperty("count", invites.size());
         return GatewayResponse.ok(data);
     }
 
@@ -200,6 +276,172 @@ final class ApiSuperiorSkyblockBridge implements SuperiorSkyblockBridge {
             }
         }
         return snapshot;
+    }
+
+    @Override
+    public boolean canManageIslandQuests(UUID playerUuid) {
+        SuperiorPlayer player = playersManager.getSuperiorPlayer(playerUuid);
+        if (player == null) {
+            return false;
+        }
+        Island island = player.getIsland();
+        if (island == null) {
+            return false;
+        }
+        SuperiorPlayer owner = island.getOwner();
+        if (owner != null && owner.getUniqueId().equals(playerUuid)) {
+            return true;
+        }
+        PlayerRole ownerRole = owner != null ? owner.getPlayerRole() : null;
+        PlayerRole role = player.getPlayerRole();
+        if (role == null || ownerRole == null) {
+            return false;
+        }
+        PlayerRole deputy = ownerRole.getPreviousRole();
+        return deputy != null && role.equals(deputy);
+    }
+
+    @Override
+    public int memberCount(UUID islandUuid) {
+        if (islandUuid == null) {
+            return 0;
+        }
+        Island island = gridManager.getIslandByUUID(islandUuid);
+        if (island == null) {
+            return 0;
+        }
+        return members(island).size();
+    }
+
+    @Override
+    public IslandDetails describeIsland(UUID islandUuid) {
+        if (islandUuid == null) {
+            return null;
+        }
+        Island island = gridManager.getIslandByUUID(islandUuid);
+        if (island == null) {
+            return null;
+        }
+        SuperiorPlayer owner = island.getOwner();
+        UUID ownerUuid = owner != null ? owner.getUniqueId() : null;
+        String ownerName = owner != null ? owner.getName() : null;
+        return new IslandDetails(island.getUniqueId(), island.getName(), ownerUuid, ownerName);
+    }
+
+    @Override
+    public Optional<String> lookupPlayerName(String uuid) {
+        if (uuid == null || uuid.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            UUID parsed = UUID.fromString(uuid);
+            SuperiorPlayer player = playersManager.getSuperiorPlayer(parsed);
+            if (player != null && player.getName() != null) {
+                return Optional.of(player.getName());
+            }
+            return Optional.ofNullable(Bukkit.getOfflinePlayer(parsed).getName());
+        } catch (IllegalArgumentException ex) {
+            SuperiorPlayer player = playersManager.getSuperiorPlayer(uuid);
+            if (player != null && player.getName() != null) {
+                return Optional.of(player.getName());
+            }
+            return Optional.ofNullable(Bukkit.getOfflinePlayer(uuid).getName());
+        }
+    }
+
+    @Override
+    public void broadcastIslandMessage(UUID islandUuid, java.util.List<String> messages) {
+        if (islandUuid == null || messages == null || messages.isEmpty()) {
+            return;
+        }
+        Island island = gridManager.getIslandByUUID(islandUuid);
+        if (island == null) {
+            return;
+        }
+        java.util.List<String> resolved = new java.util.ArrayList<>(messages.size());
+        for (String message : messages) {
+            if (message == null) {
+                continue;
+            }
+            resolved.add(ChatColor.translateAlternateColorCodes('&', message));
+        }
+        if (resolved.isEmpty()) {
+            return;
+        }
+        for (SuperiorPlayer member : island.getIslandMembers(true)) {
+            if (member == null) {
+                continue;
+            }
+            member.runIfOnline(player -> {
+                for (String line : resolved) {
+                    player.sendMessage(line);
+                }
+            });
+        }
+    }
+
+    @Override
+    public GatewayResponse disbandIsland(UUID actorUuid) {
+        SuperiorPlayer actor = requirePlayer(actorUuid, "actor");
+        Island island = requireIsland(actor);
+        SuperiorPlayer owner = island.getOwner();
+        if (owner == null || !owner.getUniqueId().equals(actorUuid)) {
+            throw new GatewayException(ErrorCode.FORBIDDEN, "Only the island owner can disband the island");
+        }
+        UUID islandId = island.getUniqueId();
+        island.disbandIsland();
+        JsonObject data = new JsonObject();
+        data.addProperty("islandId", islandId.toString());
+        return GatewayResponse.ok(data);
+    }
+
+    @Override
+    public GatewayResponse toggleWorldBorder(UUID playerUuid) {
+        SuperiorPlayer player = requirePlayer(playerUuid, "player");
+        player.toggleWorldBorder();
+        refreshWorldBorder(player);
+        return GatewayResponse.ok(borderState(player));
+    }
+
+    @Override
+    public GatewayResponse setBorderColor(UUID playerUuid, String color) {
+        SuperiorPlayer player = requirePlayer(playerUuid, "player");
+        BorderColor borderColor = parseBorderColor(color);
+        player.setBorderColor(borderColor);
+        refreshWorldBorder(player);
+        return GatewayResponse.ok(borderState(player));
+    }
+
+    @Override
+    public GatewayResponse borderState(UUID playerUuid) {
+        SuperiorPlayer player = requirePlayer(playerUuid, "player");
+        return GatewayResponse.ok(borderState(player));
+    }
+
+    private JsonObject borderState(SuperiorPlayer player) {
+        JsonObject data = new JsonObject();
+        data.addProperty("enabled", player.hasWorldBorderEnabled());
+        BorderColor color = player.getBorderColor();
+        data.addProperty("color", color != null ? color.name() : BorderColor.GREEN.name());
+        return data;
+    }
+
+    private void refreshWorldBorder(SuperiorPlayer player) {
+        Island island = player.getIsland();
+        if (island != null) {
+            player.updateWorldBorder(island);
+        }
+    }
+
+    private BorderColor parseBorderColor(String color) {
+        if (color == null || color.isBlank()) {
+            throw new GatewayException(ErrorCode.BAD_REQUEST, "color is required");
+        }
+        try {
+            return BorderColor.valueOf(color.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new GatewayException(ErrorCode.BAD_REQUEST, "Unknown border color: " + color, false, ex);
+        }
     }
 
     private SuperiorPlayer requirePlayer(UUID uuid, String label) {

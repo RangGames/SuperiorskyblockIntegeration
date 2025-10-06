@@ -4,7 +4,14 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.UUID;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * Canonical representation of SSB messaging payloads.
@@ -12,6 +19,11 @@ import java.util.UUID;
 public final class RedisMessage {
 
     public static final int CURRENT_VERSION = 1;
+
+    private static final String KEY_COMPRESSED = "__compressed";
+    private static final String KEY_ENCODING = "__encoding";
+    private static final String KEY_PAYLOAD = "__payload";
+    private static final String ENCODING_GZIP_BASE64 = "gzip+base64";
 
     private final JsonObject root;
 
@@ -150,5 +162,76 @@ public final class RedisMessage {
 
     public void ensureVersion() {
         root.addProperty("ver", String.valueOf(CURRENT_VERSION));
+    }
+
+    public void compressDataIfNeeded(int threshold) {
+        if (threshold <= 0) {
+            return;
+        }
+        JsonElement element = root.get("data");
+        if (element == null || !element.isJsonObject()) {
+            return;
+        }
+        JsonObject data = element.getAsJsonObject();
+        if (data.has(KEY_COMPRESSED)) {
+            return;
+        }
+        String json = RedisCodec.gson().toJson(data);
+        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length < threshold) {
+            return;
+        }
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             GZIPOutputStream gzip = new GZIPOutputStream(baos)) {
+            gzip.write(bytes);
+            gzip.finish();
+            String encoded = Base64.getEncoder().encodeToString(baos.toByteArray());
+            JsonObject wrapper = new JsonObject();
+            wrapper.addProperty(KEY_COMPRESSED, true);
+            wrapper.addProperty(KEY_ENCODING, ENCODING_GZIP_BASE64);
+            wrapper.addProperty(KEY_PAYLOAD, encoded);
+            root.add("data", wrapper);
+        } catch (IOException ignored) {
+            root.add("data", data);
+        }
+    }
+
+    public void decompressDataIfNeeded() {
+        JsonElement element = root.get("data");
+        if (element == null || !element.isJsonObject()) {
+            return;
+        }
+        JsonObject data = element.getAsJsonObject();
+        if (!isCompressionWrapper(data)) {
+            return;
+        }
+        String payload = data.has(KEY_PAYLOAD) ? data.get(KEY_PAYLOAD).getAsString() : null;
+        if (payload == null || payload.isEmpty()) {
+            root.add("data", new JsonObject());
+            return;
+        }
+        byte[] compressed;
+        try {
+            compressed = Base64.getDecoder().decode(payload);
+        } catch (IllegalArgumentException ex) {
+            root.add("data", new JsonObject());
+            return;
+        }
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
+             GZIPInputStream gzip = new GZIPInputStream(bais)) {
+            byte[] uncompressed = gzip.readAllBytes();
+            JsonObject original = JsonParser.parseString(new String(uncompressed, StandardCharsets.UTF_8)).getAsJsonObject();
+            root.add("data", original);
+        } catch (IOException | RuntimeException ex) {
+            root.add("data", new JsonObject());
+        }
+    }
+
+    private boolean isCompressionWrapper(JsonObject data) {
+        if (!data.has(KEY_COMPRESSED) || !data.get(KEY_COMPRESSED).getAsBoolean()) {
+            return false;
+        }
+        String encoding = data.has(KEY_ENCODING) ? data.get(KEY_ENCODING).getAsString() : "";
+        return ENCODING_GZIP_BASE64.equalsIgnoreCase(encoding);
     }
 }

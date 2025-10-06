@@ -21,6 +21,8 @@ public interface SuperiorSkyblockBridge {
 
     GatewayResponse denyInvite(UUID actor, String inviteId, JsonObject payload);
 
+    GatewayResponse listPendingInvites(UUID actor, JsonObject payload);
+
     GatewayResponse getIslandInfo(UUID requester, Optional<String> ownerIdentifier, JsonObject payload);
 
     GatewayResponse listMembers(UUID requester, Optional<String> islandIdentifier, JsonObject payload);
@@ -28,4 +30,25 @@ public interface SuperiorSkyblockBridge {
     Optional<UUID> islandIdForPlayer(UUID playerUuid);
 
     Map<UUID, UUID> snapshotPlayerIslands();
+
+    boolean canManageIslandQuests(UUID playerUuid);
+
+    int memberCount(UUID islandUuid);
+
+    IslandDetails describeIsland(UUID islandUuid);
+
+    java.util.Optional<String> lookupPlayerName(String uuid);
+
+    GatewayResponse toggleWorldBorder(UUID playerUuid);
+
+    GatewayResponse setBorderColor(UUID playerUuid, String color);
+
+    GatewayResponse borderState(UUID playerUuid);
+
+    void broadcastIslandMessage(UUID islandUuid, java.util.List<String> messages);
+
+    GatewayResponse disbandIsland(UUID actorUuid);
+
+    record IslandDetails(UUID islandUuid, String name, UUID ownerUuid, String ownerName) {
+    }
 }

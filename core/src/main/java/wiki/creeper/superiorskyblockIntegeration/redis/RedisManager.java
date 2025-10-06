@@ -1,26 +1,28 @@
 package wiki.creeper.superiorskyblockIntegeration.redis;
 
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 import org.bukkit.plugin.java.JavaPlugin;
-import redis.clients.jedis.DefaultJedisClientConfig;
-import redis.clients.jedis.HostAndPort;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 
+import java.time.Duration;
 import java.util.Objects;
 import java.util.logging.Level;
 
 import wiki.creeper.superiorskyblockIntegeration.config.PluginConfig;
 
 /**
- * Lazily initialised Redis client for pub/sub and short-lived commands.
+ * Lazily initialised Redis client for pub/sub and command execution using Lettuce.
  */
 public final class RedisManager {
 
     private final JavaPlugin plugin;
     private final PluginConfig.RedisSettings settings;
 
-    private JedisPool pool;
+    private RedisClient client;
+    private StatefulRedisConnection<String, String> commandConnection;
 
     public RedisManager(JavaPlugin plugin, PluginConfig.RedisSettings settings) {
         this.plugin = plugin;
@@ -28,26 +30,23 @@ public final class RedisManager {
     }
 
     public void start() {
-        GenericObjectPoolConfig<Jedis> poolConfig = new GenericObjectPoolConfig<>();
-        poolConfig.setMaxTotal(32);
-        poolConfig.setMaxIdle(16);
-        poolConfig.setMinIdle(2);
-        poolConfig.setTestOnBorrow(true);
-        poolConfig.setTestOnReturn(true);
+        RedisURI.Builder builder = RedisURI.builder()
+                .withHost(settings.host())
+                .withPort(settings.port())
+                .withDatabase(settings.database())
+                .withTimeout(Duration.ofSeconds(5));
 
-        DefaultJedisClientConfig.Builder builder = DefaultJedisClientConfig.builder()
-                .connectionTimeoutMillis(2000)
-                .socketTimeoutMillis(2000)
-                .database(settings.database())
-                .ssl(settings.ssl());
-
+        if (settings.ssl()) {
+            builder.withSsl(true);
+        }
         if (settings.password() != null && !settings.password().isBlank()) {
-            builder.password(settings.password());
+            builder.withPassword(settings.password().toCharArray());
         }
 
         try {
-            this.pool = new JedisPool(poolConfig, new HostAndPort(settings.host(), settings.port()), builder.build());
-            plugin.getLogger().info("Connected to Redis @ " + settings.host() + ":" + settings.port());
+            this.client = RedisClient.create(builder.build());
+            this.commandConnection = client.connect();
+            plugin.getLogger().info("Connected to Redis @ " + settings.host() + ':' + settings.port());
         } catch (Exception ex) {
             plugin.getLogger().log(Level.SEVERE, "Failed to initialise Redis connection", ex);
             throw ex;
@@ -55,22 +54,39 @@ public final class RedisManager {
     }
 
     public void stop() {
-        if (pool != null) {
+        if (commandConnection != null) {
             try {
-                pool.close();
+                commandConnection.close();
             } catch (Exception ex) {
-                plugin.getLogger().log(Level.WARNING, "Error while closing Redis client", ex);
+                plugin.getLogger().log(Level.WARNING, "Error while closing Redis connection", ex);
+            }
+        }
+        if (client != null) {
+            try {
+                client.shutdown();
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.WARNING, "Error while shutting down Redis client", ex);
             }
         }
     }
 
-    public JedisPool pool() {
-        return Objects.requireNonNull(pool, "RedisManager not started");
+    public StatefulRedisPubSubConnection<String, String> connectPubSub() {
+        ensureStarted();
+        return client.connectPubSub();
+    }
+
+    public RedisCommands<String, String> sync() {
+        ensureStarted();
+        return commandConnection.sync();
     }
 
     public void publish(String channel, String message) {
-        try (Jedis jedis = pool().getResource()) {
-            jedis.publish(channel, message);
-        }
+        ensureStarted();
+        commandConnection.async().publish(channel, message);
+    }
+
+    private void ensureStarted() {
+        Objects.requireNonNull(client, "RedisManager not started");
+        Objects.requireNonNull(commandConnection, "RedisManager not started");
     }
 }

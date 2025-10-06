@@ -1,44 +1,77 @@
-# Redis and client configuration for non-SSB2 servers.
+# 플러그인이 현재 서버에서 어떤 역할을 수행하는지 지정합니다.
+# CLIENT 모드는 일반 Spigot 서버에서 게이트웨이와 통신할 때 사용합니다.
 mode: CLIENT
 
+# Redis 연결 및 메시지 압축 설정입니다.
 redis:
+  # Redis 호스트 주소 (IP 혹은 도메인)
   host: 127.0.0.1
+  # Redis 포트 번호
   port: 6379
+  # 인증 비밀번호 (없으면 빈 문자열 유지)
   password: ""
+  # TLS/SSL 연결을 사용할지 여부
   ssl: false
+  # 사용할 Redis 데이터베이스 인덱스
   database: 0
+  # 요청/응답 JSON 이 이 값을 초과하면 압축하여 전송합니다 (바이트 단위)
+  compressionThreshold: 16384
 
+# 게이트웨이와 메시지를 주고 받을 때 사용할 채널 접두사입니다.
 channels:
+  # 여러 플러그인이 동일한 Redis 를 공유할 때 충돌을 막기 위한 네임스페이스입니다.
   prefix: ssb.v1
 
+# Redis 요청/응답에 대한 타임아웃 값입니다.
 timeouts:
+  # 게이트웨이로 요청을 전송할 때 허용되는 최대 소켓 대기 시간 (밀리초)
   requestMs: 3000
+  # 응답을 기다리는 최대 시간. 초과 시 실패로 처리됩니다 (밀리초)
   responseMaxWaitMs: 5000
 
+# Redis 메시지 위·변조를 방지하기 위한 HMAC 서명 키입니다.
 security:
+  # 모든 서버에서 동일한 값으로 유지해야 안전하게 통신할 수 있습니다.
   hmacSecret: change-me
 
+# 추가 디버깅이 필요할 때 요청 본문 로깅을 활성화할 수 있습니다.
 logging:
+  # true 로 설정하면 Redis 요청 payload 를 콘솔에 출력합니다 (주의: 민감 정보 노출 가능)
   requestBodies: false
+  # true 로 설정하면 pub/sub 메시지를 포함한 Redis 이벤트 흐름을 상세 로그로 남깁니다.
+  redis: false
 
+# 게이트웨이에 대한 공통 런타임 설정입니다.
 gateway:
   concurrency:
+    # 게이트웨이 요청을 비동기로 처리할 워커 스레드 개수입니다.
     workers: 16
   locks:
+    # 섬 관련 연산을 잠글 때 사용하는 TTL 값입니다. 짧을수록 중복 처리 가능성이 높아집니다 (밀리초).
     islandLockTtlMs: 2000
   superiorSkyblock:
+    # SuperiorSkyblock API 호출이 메인 스레드에서 기다릴 최대 시간입니다 (밀리초).
     apiHookTimeoutMs: 1000
 
+# 클라이언트 전용 동작 설정입니다.
 client:
   cache:
+    # Redis 호출 결과를 로컬 메모리에 캐싱할지 여부입니다.
     enabled: true
+    # 캐시된 항목의 기본 생존 시간(초)입니다.
     ttlSeconds: 10
+    # 캐시에 저장할 수 있는 최대 항목 수입니다.
     maximumSize: 5000
   ui:
+    # GUI 기본 로케일. 플레이어 로케일 정보를 얻지 못할 때 사용됩니다.
     localeDefault: ko_KR
   retry:
+    # 네트워크 요청이 실패했을 때 자동으로 재시도할 횟수입니다.
     attempts: 1
+    # 재시도 사이의 대기 시간(밀리초)입니다.
     backoffMs: 250
   velocity:
+    # Velocity/BungeeCord 네트워크로 자동 이동을 사용할지 여부입니다.
     enabled: false
+    # 사용 시 플레이어를 이동시킬 대상 서버 이름입니다.
     targetServer: skyblock

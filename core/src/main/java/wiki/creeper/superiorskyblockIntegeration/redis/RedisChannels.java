@@ -44,4 +44,23 @@ public final class RedisChannels {
     public boolean isEventChannel(String channel) {
         return channel.startsWith(prefix + ".evt.");
     }
+
+    public String busChannel(String topic) {
+        return prefix + ".bus." + topic;
+    }
+
+    public String busPattern() {
+        return prefix + ".bus.*";
+    }
+
+    public boolean isBusChannel(String channel) {
+        return channel.startsWith(prefix + ".bus.");
+    }
+
+    public String busTopic(String channel) {
+        if (!isBusChannel(channel)) {
+            return channel;
+        }
+        return channel.substring((prefix + ".bus.").length());
+    }
 }
