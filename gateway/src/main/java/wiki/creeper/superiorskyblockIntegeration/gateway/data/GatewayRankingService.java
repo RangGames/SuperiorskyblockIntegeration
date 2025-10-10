@@ -284,6 +284,56 @@ public final class GatewayRankingService {
         return root;
     }
 
+    public JsonObject islandPoints(UUID islandUuid) {
+        ensureSchemaReady();
+
+        JsonObject data = new JsonObject();
+        data.addProperty("islandId", islandUuid.toString());
+
+        long totalPoints = 0L;
+        long dailyPoints = 0L;
+        long weeklyPoints = 0L;
+        java.sql.Timestamp updatedAt = null;
+
+        String sql = "SELECT total_points, daily_points, weekly_points, updated_at " +
+                "FROM " + TABLE_RANKING + " WHERE island_id = ?";
+
+        try (Connection connection = database.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, islandUuid.toString());
+            try (ResultSet rs = statement.executeQuery()) {
+                if (rs.next()) {
+                    totalPoints = rs.getLong("total_points");
+                    dailyPoints = rs.getLong("daily_points");
+                    weeklyPoints = rs.getLong("weekly_points");
+                    updatedAt = rs.getTimestamp("updated_at");
+                }
+            }
+        } catch (SQLException ex) {
+            logger.log(Level.WARNING, "Failed to load farm points for island " + islandUuid, ex);
+        }
+
+        SuperiorSkyblockBridge.IslandDetails details = bridge.describeIsland(islandUuid);
+        if (details != null) {
+            data.addProperty("islandName", details.name());
+            if (details.ownerUuid() != null) {
+                data.addProperty("ownerUuid", details.ownerUuid().toString());
+            }
+            if (details.ownerName() != null) {
+                data.addProperty("ownerName", details.ownerName());
+            }
+        }
+
+        data.addProperty("totalPoints", totalPoints);
+        data.addProperty("dailyPoints", dailyPoints);
+        data.addProperty("weeklyPoints", weeklyPoints);
+        if (updatedAt != null) {
+            data.addProperty("updatedAt", updatedAt.getTime());
+        }
+
+        return data;
+    }
+
     public JsonObject islandMembers(UUID islandUuid, int limit) {
         ensureSchemaReady();
 

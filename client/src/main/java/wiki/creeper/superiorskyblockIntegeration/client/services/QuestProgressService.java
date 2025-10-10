@@ -169,13 +169,13 @@ public final class QuestProgressService {
             return;
         }
         int questCount = block.has("questCount") ? block.get("questCount").getAsInt() : 0;
-        int moonlight = block.has("moonlightReward") ? block.get("moonlightReward").getAsInt()
-                : QuestRewards.moonlightReward(type, questCount);
         int farmPoint = block.has("farmPointReward") ? block.get("farmPointReward").getAsInt()
-                : QuestRewards.farmPointReward(type);
+                : QuestRewards.farmPointReward(type, questCount);
+        int farmScore = block.has("farmScoreReward") ? block.get("farmScoreReward").getAsInt()
+                : QuestRewards.farmScoreReward(type);
         player.sendMessage(ChatColor.GOLD + "[Skyblock] " + (type.isDaily() ? "일간" : "주간") + " 퀘스트를 전부 완료했습니다!");
-        player.sendMessage(ChatColor.WHITE + " - 달빛: " + ChatColor.YELLOW + formatNumber(moonlight));
         player.sendMessage(ChatColor.WHITE + " - 팜 포인트: " + ChatColor.YELLOW + formatNumber(farmPoint));
+        player.sendMessage(ChatColor.WHITE + " - 팜 점수: " + ChatColor.YELLOW + formatNumber(farmScore));
     }
 
     private String completionKey(QuestType type, int questId) {

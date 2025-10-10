@@ -3,6 +3,7 @@ package wiki.creeper.superiorskyblockIntegeration.gateway;
 import com.google.gson.JsonObject;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
+import io.papermc.lib.PaperLib;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.World;
@@ -174,7 +175,14 @@ final class GatewayBusListener extends RedisPubSubAdapter<String, String> {
             if (superiorPlayer.isOnline()) {
                 Player bukkitPlayer = superiorPlayer.asPlayer();
                 if (bukkitPlayer != null) {
-                    bukkitPlayer.teleport(center);
+                    final Player playerRef = bukkitPlayer;
+                    final Location destination = center;
+                    PaperLib.teleportAsync(playerRef, destination)
+                            .exceptionally(ex -> {
+                                logger.log(Level.WARNING, "Failed to teleport player asynchronously", ex);
+                                plugin.getServer().getScheduler().runTask(plugin, () -> playerRef.teleport(destination));
+                                return null;
+                            });
                 }
             }
         });

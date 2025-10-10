@@ -57,6 +57,9 @@ public final class FarmShopService {
             String title = entry.has("title") ? entry.get("title").getAsString() : "&f아이템";
             String icon = entry.has("icon") ? entry.get("icon").getAsString() : "BARRIER";
             String currency = entry.has("currency") ? entry.get("currency").getAsString() : "none";
+            if ("moonlight".equalsIgnoreCase(currency)) {
+                currency = "farmpoint";
+            }
             int price = entry.has("price") ? entry.get("price").getAsInt() : 0;
             String command = entry.has("command") ? entry.get("command").getAsString() : "";
             boolean enabled = !entry.has("enabled") || entry.get("enabled").getAsBoolean();
@@ -80,4 +83,3 @@ public final class FarmShopService {
                            String command,
                            boolean enabled) { }
 }
-

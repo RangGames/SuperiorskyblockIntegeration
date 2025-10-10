@@ -65,11 +65,23 @@ gateway:
       connectionTimeoutMs: 5000
       # 유휴 상태 커넥션을 풀에서 제거하기까지의 시간 (밀리초)
       idleTimeoutMs: 600000
+      # 풀에서 커넥션을 재생성하기까지의 최대 수명 (밀리초)
+      maxLifetimeMs: 1740000
+      # 커넥션을 헬스체크할 주기 (0이면 비활성화, 밀리초)
+      keepaliveTimeMs: 300000
+      # 커넥션 반환이 지연되면 경고를 출력할 임계값 (0이면 비활성화, 밀리초)
+      leakDetectionThresholdMs: 0
+      # 연결 검증 쿼리의 타임아웃 (밀리초)
+      validationTimeoutMs: 5000
+      # MySQL 소켓 타임아웃 (0이면 드라이버 기본값, 밀리초)
+      socketTimeoutMs: 600000
+      # TCP keep-alive 옵션을 활성화할지 여부
+      tcpKeepAlive: true
   concurrency:
     # Redis 요청을 비동기로 처리할 워커 스레드 개수입니다.
     workers: 16
   locks:
-    # 섬 관련 연산을 잠글 때 사용하는 TTL 값입니다 (밀리초).
+    # 팜 관련 연산을 잠글 때 사용하는 TTL 값입니다 (밀리초).
     islandLockTtlMs: 2000
   superiorSkyblock:
     # SuperiorSkyblock API 호출이 메인 스레드에서 기다릴 최대 시간입니다 (밀리초).
@@ -84,10 +96,8 @@ gateway:
         title: "&c&l[1위]"
         # 보상 아이콘으로 사용할 아이템 유형입니다.
         icon: NETHER_STAR
-        # 달빛 지급량입니다.
-        moonlight: 500000
-        # 팜 포인트 지급량입니다.
-        farmPoints: 1000
+        # 순위 보상으로 지급할 팜 포인트입니다.
+        farmPoints: 500000
         # GUI 에 표시될 로어 텍스트입니다.
         lore:
           - "&7추가 칭호 및 보상은 추후 공지"
@@ -95,20 +105,17 @@ gateway:
         maxRank: 2
         title: "&b&l[2위]"
         icon: DIAMOND
-        moonlight: 300000
-        farmPoints: 700
+        farmPoints: 300000
       - minRank: 3
         maxRank: 3
         title: "&a&l[3위]"
         icon: EMERALD
-        moonlight: 200000
-        farmPoints: 500
+        farmPoints: 200000
       - minRank: 4
         maxRank: 10
         title: "&a&l[4~10위]"
         icon: GOLD_INGOT
-        moonlight: 100000
-        farmPoints: 250
+        farmPoints: 100000
   shop:
     # 팜 상점 GUI 에 노출할 상품 목록입니다.
     items:
@@ -117,8 +124,8 @@ gateway:
         title: "&a팜 칭호"
         # 인벤토리 아이콘 재료입니다.
         icon: BOOK
-        # 결제에 사용할 화폐 타입 (moonlight, farmpoint, none 중 하나).
-        currency: moonlight
+        # 결제에 사용할 화폐 타입 (farmpoint 또는 none).
+        currency: farmpoint
         # 아이템 가격입니다.
         price: 150000
         # GUI 로어 설명입니다.
@@ -170,3 +177,5 @@ client:
     enabled: false
     # 사용 시 플레이어를 이동시킬 대상 서버 이름입니다.
     targetServer: skyblock
+    # /spawn 명령 등으로 이동할 로비 서버 이름입니다.
+    lobbyServer: lobby

@@ -31,7 +31,6 @@ public final class GatewayQuestService {
     private final GatewayRankingService rankingService;
     private final SuperiorSkyblockBridge bridge;
     private static final String NAMESPACE_FARM_MONEY = "economy.farmMoney";
-    private static final String NAMESPACE_VOLUNTEER = "economy.volunteerQuest";
     private static final DateTimeFormatter DAILY_ASSIGNMENT_FORMAT = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일");
     private static final DateTimeFormatter WEEKLY_ASSIGNMENT_FORMAT = DateTimeFormatter.ofPattern("yyyy년 MM월");
     private final ZoneId systemZone = ZoneId.systemDefault();
@@ -133,8 +132,8 @@ public final class GatewayQuestService {
         if (set.rewardGrantedAt() > 0L) {
             json.addProperty("rewardGrantedAt", set.rewardGrantedAt());
         }
-        json.addProperty("moonlightReward", QuestRewards.moonlightReward(set.type(), set.questCount()));
-        json.addProperty("farmPointReward", QuestRewards.farmPointReward(set.type()));
+        json.addProperty("farmPointReward", QuestRewards.farmPointReward(set.type(), set.questCount()));
+        json.addProperty("farmScoreReward", QuestRewards.farmScoreReward(set.type()));
 
         JsonArray quests = new JsonArray();
         for (IslandQuestEntry entry : set.quests()) {
@@ -167,17 +166,14 @@ public final class GatewayQuestService {
             return;
         }
         int questCount = set.questCount();
-        int moonlightReward = QuestRewards.moonlightReward(set.type(), questCount);
-        int farmPointReward = QuestRewards.farmPointReward(set.type());
+        int farmPointReward = QuestRewards.farmPointReward(set.type(), questCount);
+        int farmScoreReward = QuestRewards.farmScoreReward(set.type());
 
-        if (moonlightReward > 0) {
-            adjustCounter(NAMESPACE_VOLUNTEER, islandUuidRaw, moonlightReward);
-        }
         if (farmPointReward > 0) {
             adjustCounter(NAMESPACE_FARM_MONEY, islandUuidRaw, farmPointReward);
-            if (rankingService != null) {
-                rankingService.awardFarmPoints(islandUuid, farmPointReward, set.type());
-            }
+        }
+        if (rankingService != null && farmScoreReward > 0) {
+            rankingService.awardFarmPoints(islandUuid, farmScoreReward, set.type());
         }
     }
 
@@ -230,15 +226,15 @@ public final class GatewayQuestService {
             return;
         }
         int questCount = set.questCount();
-        int moonlight = QuestRewards.moonlightReward(set.type(), questCount);
-        int farmPoint = QuestRewards.farmPointReward(set.type());
+        int farmPoint = QuestRewards.farmPointReward(set.type(), questCount);
+        int farmScore = QuestRewards.farmScoreReward(set.type());
         String questLabel = set.type().isDaily() ? "일간" : "주간";
         List<String> lines = new ArrayList<>();
         lines.add(" ");
         lines.add("&e[팜] &f" + questLabel + " 퀘스트를 모두 완료했습니다!");
         lines.add("&c&l[보상]");
-        lines.add("&f - 달빛: &e" + formatNumber(moonlight));
         lines.add("&f - 팜 포인트: &e" + formatNumber(farmPoint));
+        lines.add("&f - 팜 점수: &e" + formatNumber(farmScore));
         lines.add(" ");
         broadcast(islandUuid, lines);
     }

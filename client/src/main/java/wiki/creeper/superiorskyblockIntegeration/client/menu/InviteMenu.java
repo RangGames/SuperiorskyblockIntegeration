@@ -29,7 +29,8 @@ final class InviteMenu extends AbstractMenu {
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        fill(icon(Material.GRAY_STAINED_GLASS_PANE, " "));
+        decorateDefault(inventory);
+        placeNavigation(backButton("메인 메뉴"), null, mainMenuButton());
         populateQuickTargets(player);
         setManualInviteItem();
     }
@@ -39,22 +40,20 @@ final class InviteMenu extends AbstractMenu {
         if (inventory == null) {
             return;
         }
-        int slot = 0;
+        int[] slots = primarySlots();
+        int index = 0;
         for (Player candidate : manager().plugin().getServer().getOnlinePlayers()) {
             if (candidate.equals(viewer)) {
                 continue;
             }
-            if (slot == MANUAL_INPUT_SLOT) {
-                slot++;
+            if (index >= slots.length) {
+                break;
             }
+            int slot = slots[index++];
             setItem(slot, withStringTag(playerHead(candidate.getUniqueId(), candidate.getName(),
                     "&a" + candidate.getName(),
                     "&7온라인", "", "&e클릭 &7초대 전송"),
                     "invite-target", candidate.getName()));
-            slot++;
-            if (slot >= inventory.getSize()) {
-                break;
-            }
         }
     }
 
@@ -69,6 +68,21 @@ final class InviteMenu extends AbstractMenu {
     protected void onClick(Player player, InventoryClickEvent event) {
         super.onClick(player, event);
         int slot = event.getRawSlot();
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
+            manager().openMainMenu(player);
+            return;
+        }
+        if (slot == mainSlot) {
+            manager().openMainMenu(player);
+            return;
+        }
         if (slot == MANUAL_INPUT_SLOT) {
             manager().beginInvitePrompt(player,
                     () -> manager().openMenu(player, new InviteMenu(manager())),

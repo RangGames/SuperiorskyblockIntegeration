@@ -14,6 +14,8 @@
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <allplayersutil.path>${project.basedir}/libs/allplayersutil-2.0.4.7-SNAPSHOT.jar</allplayersutil.path>
+        <superiorskyblock.path>${project.basedir}/libs/SuperiorSkyblock2-2025.1.jar</superiorskyblock.path>
     </properties>
 
     <modules>
@@ -26,6 +28,14 @@
         <repository>
             <id>spigotmc-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+        <repository>
+            <id>minecraft-libraries</id>
+            <url>https://libraries.minecraft.net</url>
+        </repository>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
     </repositories>
 

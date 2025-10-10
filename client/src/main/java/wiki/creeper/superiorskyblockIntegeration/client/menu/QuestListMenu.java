@@ -47,37 +47,42 @@ public final class QuestListMenu extends AbstractMenu {
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        ItemStack filler = icon(Material.GRAY_STAINED_GLASS_PANE, "&7");
-        fill(filler);
+        decorateDefault(inventory);
+        placeNavigation(backButton("퀘스트 허브"), null, mainMenuButton());
 
         JsonArray quests = block.has("quests") && block.get("quests").isJsonArray()
                 ? block.getAsJsonArray("quests")
                 : new JsonArray();
 
-        int slot = 10;
+        int[] slots = primarySlots();
+        int index = 0;
         for (JsonElement element : quests) {
             if (!element.isJsonObject()) {
                 continue;
             }
             JsonObject quest = element.getAsJsonObject();
-            inventory.setItem(slot, questIcon(quest));
-            slot++;
-            if (slot % 9 == 0) {
-                slot += 2; // skip borders
+            if (index >= slots.length) {
+                break;
             }
+            inventory.setItem(slots[index++], questIcon(quest));
         }
-
-        setItem(45, icon(Material.ARROW, "&a뒤로 가기", "&7퀘스트 허브로 돌아갑니다."));
-        setItem(53, icon(Material.CLOCK, "&e새로 고침", "&7최신 진행도를 불러옵니다."));
     }
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
+        super.onClick(player, event);
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
         int slot = event.getRawSlot();
-        if (slot == 45) {
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
             manager().openQuestHub(player);
-        } else if (slot == 53) {
-            manager().openQuestList(player, type, null); // trigger refresh
+        } else if (slot == mainSlot) {
+            manager().openMainMenu(player);
         }
     }
 

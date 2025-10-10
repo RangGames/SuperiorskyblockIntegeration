@@ -30,41 +30,56 @@ public final class BorderMenu extends AbstractMenu {
 
     @Override
     protected int size() {
-        return 27;
+        return 45;
     }
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        fill(icon(Material.GRAY_STAINED_GLASS_PANE, " "));
-
+        decorateDefault(inventory);
         String status = enabled ? ChatColor.GREEN + "활성화됨" : ChatColor.RED + "비활성화됨";
         Material toggleMaterial = enabled ? Material.LIME_DYE : Material.RED_DYE;
-        setItem(11, icon(toggleMaterial,
+        setItem(21, icon(toggleMaterial,
                 ChatColor.YELLOW + "경계선 토글",
                 ChatColor.WHITE + "현재 상태: " + status,
                 "",
-                ChatColor.GRAY + "클릭 시 경계선을 "+ (enabled ? "비활성화" : "활성화") + " 합니다."));
+                ChatColor.GRAY + "클릭 시 경계선을 " + (enabled ? "비활성화" : "활성화") + " 합니다."));
 
-        setItem(13, icon(Material.PAPER,
+        setItem(23, icon(Material.PAPER,
                 ChatColor.AQUA + "현재 색상",
                 ChatColor.WHITE + colorLabel(color)));
 
-        setItem(15, icon(Material.ARROW, ChatColor.GREEN + "돌아가기", ChatColor.GRAY + "메인 메뉴로 돌아갑니다."));
+        setItem(29, createColorIcon("GREEN", Material.LIME_STAINED_GLASS_PANE));
+        setItem(31, createColorIcon("RED", Material.RED_STAINED_GLASS_PANE));
+        setItem(33, createColorIcon("BLUE", Material.BLUE_STAINED_GLASS_PANE));
 
-        setItem(19, createColorIcon("GREEN", Material.LIME_STAINED_GLASS_PANE));
-        setItem(21, createColorIcon("RED", Material.RED_STAINED_GLASS_PANE));
-        setItem(23, createColorIcon("BLUE", Material.BLUE_STAINED_GLASS_PANE));
+        placeNavigation(backButton("메인 메뉴"), null, mainMenuButton());
     }
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
+        super.onClick(player, event);
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
         int slot = event.getRawSlot();
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
+            manager().openMainMenu(player);
+            return;
+        }
+        if (slot == mainSlot) {
+            manager().openMainMenu(player);
+            return;
+        }
+
         switch (slot) {
-            case 11 -> toggle(player);
-            case 15 -> manager().openMainMenu(player);
-            case 19 -> setColor(player, "GREEN");
-            case 21 -> setColor(player, "RED");
-            case 23 -> setColor(player, "BLUE");
+            case 21 -> toggle(player);
+            case 29 -> setColor(player, "GREEN");
+            case 31 -> setColor(player, "RED");
+            case 33 -> setColor(player, "BLUE");
             default -> {
             }
         }

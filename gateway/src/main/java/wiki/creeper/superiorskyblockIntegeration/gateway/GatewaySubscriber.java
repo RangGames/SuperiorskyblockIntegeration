@@ -6,7 +6,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.logging.Level;
 
 import wiki.creeper.superiorskyblockIntegeration.redis.MessageSecurity;
@@ -17,16 +16,14 @@ final class GatewaySubscriber extends RedisPubSubAdapter<String, String> {
     private final JavaPlugin plugin;
     private final MessageSecurity security;
     private final GatewayRequestRouter router;
-    private final ExecutorService workers;
 
     private StatefulRedisPubSubConnection<String, String> connection;
     private String subscribedPattern;
 
-    GatewaySubscriber(JavaPlugin plugin, MessageSecurity security, GatewayRequestRouter router, ExecutorService workers) {
+    GatewaySubscriber(JavaPlugin plugin, MessageSecurity security, GatewayRequestRouter router) {
         this.plugin = plugin;
         this.security = security;
         this.router = router;
-        this.workers = workers;
     }
 
     void register(StatefulRedisPubSubConnection<String, String> connection, String pattern) {
@@ -42,7 +39,7 @@ final class GatewaySubscriber extends RedisPubSubAdapter<String, String> {
 
     @Override
     public void message(String pattern, String channel, String message) {
-        workers.submit(() -> {
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 RedisMessage payload = RedisMessage.parse(message);
                 if (!security.verify(payload)) {

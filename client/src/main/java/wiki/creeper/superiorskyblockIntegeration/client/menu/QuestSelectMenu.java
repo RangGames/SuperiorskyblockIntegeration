@@ -37,12 +37,13 @@ public final class QuestSelectMenu extends AbstractMenu {
 
     @Override
     protected int size() {
-        return 36;
+        return 45;
     }
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        fill(icon(Material.GRAY_STAINED_GLASS_PANE, " "));
+        decorateDefault(inventory);
+        placeNavigation(backButton("퀘스트 허브"), null, mainMenuButton());
 
         List<QuestDifficulty> difficulties = Arrays.stream(QuestDifficulty.values())
                 .filter(diff -> diff.type() == type)
@@ -66,7 +67,23 @@ public final class QuestSelectMenu extends AbstractMenu {
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
+        super.onClick(player, event);
         int slot = event.getRawSlot();
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
+            manager().openQuestHub(player);
+            return;
+        }
+        if (slot == mainSlot) {
+            manager().openMainMenu(player);
+            return;
+        }
         if (slot == 31) {
             manager().openQuestHub(player);
             return;
@@ -95,8 +112,8 @@ public final class QuestSelectMenu extends AbstractMenu {
 
     private ItemStack createIcon(QuestDifficulty difficulty) {
         int questCount = difficulty.questCount();
-        int moonlight = QuestRewards.moonlightReward(type, questCount);
-        int farmPoint = QuestRewards.farmPointReward(type);
+        int farmPoint = QuestRewards.farmPointReward(type, questCount);
+        int farmScore = QuestRewards.farmScoreReward(type);
         String tier = tierLabel(questCount);
         boolean isSelected = selected != null && selected == questCount;
         String label = (type.isDaily() ? "일간" : "주간") + " 퀘스트";
@@ -112,8 +129,8 @@ public final class QuestSelectMenu extends AbstractMenu {
                 "&6&l| &f퀘스트 개수: &e" + questCount + "개",
                 " ",
                 "&6&l| &f보상 목록",
-                "&f  - 달빛: &e" + formatNumber(moonlight),
                 "&f  - 팜 포인트: &e" + formatNumber(farmPoint),
+                "&f  - 팜 점수: &e" + formatNumber(farmScore),
                 " ",
                 actionLine);
     }

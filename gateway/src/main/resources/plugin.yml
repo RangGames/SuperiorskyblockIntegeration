@@ -6,9 +6,12 @@ softdepend:
   - SuperiorSkyblock2
 commands:
   is:
-    description: 팜/섬 관리 통합 명령어
+    description: 팜 관리 통합 명령어
     usage: /<command>
-    aliases: ["섬", "팜", "island"]
+    aliases: ["팜", "island"]
+  spawn:
+    description: 로비로 이동합니다.
+    usage: /<command>
 permissions:
   ssb2.command.farm.admin:
     description: 팜 관리자 전용 명령을 실행할 수 있습니다.

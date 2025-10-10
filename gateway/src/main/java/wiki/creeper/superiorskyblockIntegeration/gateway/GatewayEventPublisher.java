@@ -59,6 +59,11 @@ final class GatewayEventPublisher {
         publish("member.removed", actor, data);
     }
 
+    void publishMemberKicked(UUID actor, JsonObject data) {
+        debug("member.kicked", data);
+        publish("member.kicked", actor, data);
+    }
+
     void publishIslandUpdated(UUID actor, JsonObject data) {
         debug("island.updated", data);
         publish("island.updated", actor, data);

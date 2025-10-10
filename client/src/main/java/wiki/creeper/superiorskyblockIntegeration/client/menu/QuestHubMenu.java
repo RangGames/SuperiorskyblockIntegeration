@@ -40,38 +40,51 @@ public final class QuestHubMenu extends AbstractMenu {
 
     @Override
     protected String title(Player player) {
-        return "§6섬 퀘스트";
+        return "§6팜 퀘스트";
     }
 
     @Override
     protected int size() {
-        return 36;
+        return 45;
     }
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        fill(icon(Material.GRAY_STAINED_GLASS_PANE, " "));
+        decorateDefault(inventory);
+        placeNavigation(backButton("메인 메뉴"), null, mainMenuButton());
 
+        setItem(13, icon(Material.PAPER, "&f팜 퀘스트 허브", "&7일간/주간 퀘스트 상태를 확인합니다."));
         JsonObject daily = questBlock(QuestType.DAILY);
         JsonObject weekly = questBlock(QuestType.WEEKLY);
 
-        setItem(8, icon(Material.PAPER, "&f", "&7팜 퀘스트 메뉴"));
-        setItem(20, describeBlock(daily, QuestType.DAILY));
+        setItem(19, describeBlock(daily, QuestType.DAILY));
         setItem(22, describeBlock(weekly, QuestType.WEEKLY));
-        setItem(24, icon(Material.CHAIN, "&6&l[!] &f잠금", "&7추후 업데이트 예정입니다."));
-        setItem(31, icon(Material.CLOCK, "&e새로 고침", "&7서버에서 최신 정보를 가져옵니다."));
+        setItem(25, icon(Material.CHAIN, "&6&l[!] &f잠금", "&7추후 업데이트 예정입니다."));
     }
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
+        super.onClick(player, event);
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
         int slot = event.getRawSlot();
-        if (slot == 20) {
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
+            manager().openMainMenu(player);
+            return;
+        }
+        if (slot == mainSlot) {
+            manager().openMainMenu(player);
+            return;
+        }
+        if (slot == 19) {
             handleBlockClick(player, QuestType.DAILY);
         } else if (slot == 22) {
             handleBlockClick(player, QuestType.WEEKLY);
-        } else if (slot == 31) {
-            player.sendMessage(ChatColor.YELLOW + "[Skyblock] 퀘스트 정보를 새로 고칩니다...");
-            manager().openQuestHub(player);
         }
     }
 
@@ -123,15 +136,17 @@ public final class QuestHubMenu extends AbstractMenu {
         int questCount = data.has("questCount") ? data.get("questCount").getAsInt() : 0;
         int completed = countCompleted(data);
         int percent = questCount > 0 ? Math.round((completed / (float) questCount) * 100F) : 0;
-        int moonlight = data.has("moonlightReward") ? data.get("moonlightReward").getAsInt() : QuestRewards.moonlightReward(type, questCount);
-        int farmPoint = data.has("farmPointReward") ? data.get("farmPointReward").getAsInt() : QuestRewards.farmPointReward(type);
+        int farmPoint = data.has("farmPointReward") ? data.get("farmPointReward").getAsInt()
+                : QuestRewards.farmPointReward(type, questCount);
+        int farmScore = data.has("farmScoreReward") ? data.get("farmScoreReward").getAsInt()
+                : QuestRewards.farmScoreReward(type);
         boolean rewardGranted = data.has("rewardGranted") && data.get("rewardGranted").getAsBoolean();
 
         lore.add("&a&l| &f진행도: " + formatNumber(completed) + " / " + formatNumber(questCount) + " &7&o(" + percent + "%%)");
         lore.add(" ");
         lore.add("&6&l| &f클리어 보상");
-        lore.add("&f  - 달빛: &e" + formatNumber(moonlight));
         lore.add("&f  - 팜 포인트: &e" + formatNumber(farmPoint));
+        lore.add("&f  - 팜 점수: &e" + formatNumber(farmScore));
         lore.add(rewardGranted ? "&a&l| &f보상이 지급되었습니다." : "&c&l| &f보상이 아직 지급되지 않았습니다.");
         lore.add(" ");
         lore.add("&a&l| &f클릭 시 수락 받은 " + (type.isDaily() ? "일간" : "주간") + " 퀘스트 목록을 확인합니다.");

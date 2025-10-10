@@ -4,9 +4,9 @@ version: ${project.version}
 api-version: '1.20'
 commands:
   is:
-    description: 팜/섬 관리 통합 명령어
+    description: 팜 관리 통합 명령어
     usage: /<command>
-    aliases: ["섬", "팜", "island"]
+    aliases: ["팜", "island"]
 permissions:
   ssb2.command.farm.admin:
     description: 팜 관리자 전용 명령을 실행할 수 있습니다.

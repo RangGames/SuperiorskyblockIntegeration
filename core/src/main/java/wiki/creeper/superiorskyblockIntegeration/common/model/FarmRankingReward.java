@@ -9,7 +9,6 @@ public record FarmRankingReward(int minRank,
                                 int maxRank,
                                 String title,
                                 String icon,
-                                int moonlight,
                                 int farmPoints,
                                 List<String> lore) {
 
@@ -23,4 +22,3 @@ public record FarmRankingReward(int minRank,
         lore = lore == null ? List.of() : List.copyOf(lore);
     }
 }
-

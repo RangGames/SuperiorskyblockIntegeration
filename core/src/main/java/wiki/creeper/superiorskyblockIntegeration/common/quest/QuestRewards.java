@@ -43,7 +43,7 @@ public final class QuestRewards {
         configure(zone, farmPoints.dailyDefault(), farmPoints.weeklyDefault(), windows);
     }
 
-    public static int moonlightReward(QuestType type, int completedQuests) {
+    public static int farmPointReward(QuestType type, int completedQuests) {
         return switch (type) {
             case DAILY -> switch (completedQuests) {
                 case 3 -> 10_000;
@@ -60,7 +60,7 @@ public final class QuestRewards {
         };
     }
 
-    public static int farmPointReward(QuestType type) {
+    public static int farmScoreReward(QuestType type) {
         RewardPolicy current = policy;
         int base = type.isDaily() ? current.dailyDefault : current.weeklyDefault;
         java.time.LocalDate today = java.time.LocalDate.now(current.zoneId);

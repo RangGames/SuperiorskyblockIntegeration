@@ -47,40 +47,55 @@ public final class FarmHistoryMenu extends AbstractMenu {
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        fill(icon(Material.GRAY_STAINED_GLASS_PANE, " "));
+        decorateDefault(inventory);
+        placeNavigation(backButton("메인 메뉴"), icon(Material.PAPER, "&7페이지: &f" + page),
+                icon(Material.ARROW, "&a다음 페이지", "&7다음 페이지로 이동합니다."));
+        setItem(size() - 2, icon(Material.ARROW, "&a이전 페이지", "&7이전 페이지로 이동합니다."));
 
-        int[] slots = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23};
+        if (periods == null || periods.isEmpty()) {
+            setItem(22, icon(Material.BARRIER, "&c데이터 없음", "&7기록된 시즌이 없습니다."));
+            return;
+        }
+
+        int[] slots = primarySlots();
         for (int i = 0; i < periods.size() && i < slots.length; i++) {
             FarmHistoryService.Period period = periods.get(i);
             ItemStack item = icon(Material.BOOK,
                     "&a" + (period.displayName().isBlank() ? period.periodId() : period.displayName()),
                     "&7생성: &f" + DATE_FORMAT.format(period.createdAt()),
-                    "&7기록된 섬: &f" + period.entries(),
+                    "&7기록된 팜: &f" + period.entries(),
                     "",
                     "&a클릭 시 상세 기록을 확인합니다.");
             setItem(slots[i], withStringTag(item, "history-period", period.periodId()));
         }
-
-        setItem(45, icon(Material.ARROW, "&a뒤로", "&7메인 메뉴로 돌아갑니다."));
-        setItem(52, icon(Material.ARROW, "&a이전 페이지", "&7페이지를 이동합니다."));
-        setItem(53, icon(Material.ARROW, "&a다음 페이지", "&7페이지를 이동합니다."));
-        setItem(49, icon(Material.PAPER, "&7페이지: &f" + page));
     }
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
         super.onClick(player, event);
         int slot = event.getRawSlot();
-        if (slot == 45) {
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int pageSlot = size - 5;
+        int prevSlot = size - 2;
+        int nextSlot = size - 1;
+        if (slot == backSlot) {
             manager().openMainMenu(player);
             return;
         }
-        if (slot == 52) {
+        if (slot == prevSlot) {
             manager().openFarmHistory(player, Math.max(1, page - 1));
             return;
         }
-        if (slot == 53) {
+        if (slot == nextSlot) {
             manager().openFarmHistory(player, page + 1);
+            return;
+        }
+        if (slot == pageSlot) {
             return;
         }
         ItemStack item = event.getCurrentItem();
@@ -90,4 +105,3 @@ public final class FarmHistoryMenu extends AbstractMenu {
         }
     }
 }
-

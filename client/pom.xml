@@ -37,6 +37,12 @@
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <minimizeJar>false</minimizeJar>
+                            <relocations>
+                                <relocation>
+                                    <pattern>de.rapha149.signgui</pattern>
+                                    <shadedPattern>wiki.creeper.superiorskyblockIntegeration.libs.signgui</shadedPattern>
+                                </relocation>
+                            </relocations>
                         </configuration>
                     </execution>
                 </executions>
@@ -58,6 +64,24 @@
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mojang</groupId>
+            <artifactId>authlib</artifactId>
+            <version>3.18.38</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>de.rapha149.signgui</groupId>
+            <artifactId>signgui</artifactId>
+            <version>2.5.4</version>
+        </dependency>
+        <dependency>
+            <groupId>rang.games</groupId>
+            <artifactId>allplayersutil</artifactId>
+            <version>2.0.4.7-SNAPSHOT</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/libs/allplayersutil-2.0.4.7-SNAPSHOT.jar</systemPath>
         </dependency>
     </dependencies>
 </project>

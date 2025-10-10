@@ -37,26 +37,26 @@ public final class FarmRankingMenu extends AbstractMenu {
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        ItemStack filler = icon(Material.GRAY_STAINED_GLASS_PANE, " ");
-        fill(filler);
+        decorateDefault(inventory);
+        placeNavigation(backButton("메인 메뉴"), null, mainMenuButton());
 
         if (entries == null || entries.isEmpty()) {
             setItem(22, icon(Material.BARRIER, "&c데이터 없음", "&7아직 순위 데이터가 없습니다."));
             return;
         }
 
-        int[] slots = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21};
+        int[] slots = primarySlots();
         for (int i = 0; i < entries.size() && i < slots.length; i++) {
             FarmRankingService.IslandEntry entry = entries.get(i);
             String rankColor = i == 0 ? "&c" : (i == 1 ? "&b" : (i == 2 ? "&e" : "&a"));
             List<String> lore = new ArrayList<>();
-            lore.add("&7섬장: &f" + safe(entry.ownerName()));
-            lore.add("&7총 달빛: &f" + format(entry.points()));
+            lore.add("&7팜장: &f" + safe(entry.ownerName()));
+            lore.add("&7총 팜 점수: &f" + format(entry.points()));
             if (entry.dailyPoints() > 0) {
-                lore.add("&7일간 누적: &f" + format(entry.dailyPoints()));
+                lore.add("&7일간 점수: &f" + format(entry.dailyPoints()));
             }
             if (entry.weeklyPoints() > 0) {
-                lore.add("&7주간 누적: &f" + format(entry.weeklyPoints()));
+                lore.add("&7주간 점수: &f" + format(entry.weeklyPoints()));
             }
             lore.add(" ");
             lore.add("&a클릭 시 기여도 상세를 확인합니다.");
@@ -65,14 +65,24 @@ public final class FarmRankingMenu extends AbstractMenu {
                     lore.toArray(String[]::new));
             setItem(slots[i], withStringTag(item, "target-island", entry.islandId()));
         }
-        setItem(45, icon(Material.ARROW, "&a뒤로", "&7메인 메뉴로 돌아갑니다."));
     }
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
         super.onClick(player, event);
         int slot = event.getRawSlot();
-        if (slot == 45) {
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
+            manager().openMainMenu(player);
+            return;
+        }
+        if (slot == mainSlot) {
             manager().openMainMenu(player);
             return;
         }

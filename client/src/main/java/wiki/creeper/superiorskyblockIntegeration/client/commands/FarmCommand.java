@@ -11,20 +11,30 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.text.NumberFormat;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.math.RoundingMode;
+import java.util.Base64;
 
 import wiki.creeper.superiorskyblockIntegeration.api.NetworkOperationResult;
 import wiki.creeper.superiorskyblockIntegeration.api.NetworkSkyblockService;
@@ -32,6 +42,10 @@ import wiki.creeper.superiorskyblockIntegeration.client.cache.ClientCache;
 import wiki.creeper.superiorskyblockIntegeration.client.cache.ClientCacheKeys;
 import wiki.creeper.superiorskyblockIntegeration.client.lang.Messages;
 import wiki.creeper.superiorskyblockIntegeration.client.menu.IslandMenuManager;
+import wiki.creeper.superiorskyblockIntegeration.client.model.PlayerSummary;
+import wiki.creeper.superiorskyblockIntegeration.client.model.BankHistoryPage;
+import wiki.creeper.superiorskyblockIntegeration.client.model.BankSnapshot;
+import wiki.creeper.superiorskyblockIntegeration.client.model.RolePermissionSnapshot;
 import wiki.creeper.superiorskyblockIntegeration.common.quest.QuestType;
 import wiki.creeper.superiorskyblockIntegeration.config.PluginConfig;
 
@@ -42,6 +56,9 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
 
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
+    private static final Set<Integer> POWER_REWARD_TIERS = Set.of(
+            5000, 10000, 50000, 100000, 500000, 750000, 1_000_000, 3_000_000, 5_000_000, 10_000_000
+    );
 
     private final JavaPlugin plugin;
     private final NetworkSkyblockService network;
@@ -91,12 +108,26 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
             case "수락" -> handleAccept(player, args);
             case "거절" -> handleDeny(player, args);
             case "구성원" -> handleMembers(player, args);
+            case "채팅", "chat" -> handleChat(player, args);
+            case "추방", "kick", "cnqkd" -> handleKick(player, args);
             case "정보" -> handleInfo(player, args);
+            case "포인트", "points" -> handleFarmPoints(player);
+            case "호퍼", "hopper" -> handleFarmHopper(player);
+            case "평가", "vudrk", "rating" -> handleFarmRating(player, args);
+            case "홈", "home", "homes", "gha" -> handleHome(player, args);
+            case "sethome" -> handleSetHome(player);
+            case "워프", "warp", "warps", "dnjvm" -> handleWarp(player, args);
+            case "규칙", "rule", "rules", "rbclr" -> handleRules(player, args);
             case "순위" -> handleRanking(player, args);
             case "히스토리" -> handleHistory(player, args);
             case "보상" -> handleRewards(player, args);
             case "상점" -> handleShop(player, args);
+            case "금고", "bank", "safe", "account" -> handleBank(player, args);
+            case "알바", "coop" -> handleCoop(player, args);
+            case "차단", "ban" -> handleBan(player, args);
+            case "권한" -> handlePermissions(player, args);
             case "경계" -> handleBorder(player, args);
+            case "관리", "manage" -> handleManage(player, args);
             case "해체", "disband" -> handleDisband(player, args);
             case "관리자" -> handleAdmin(player, args);
             default -> {
@@ -228,6 +259,102 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
                 !wantMenu);
     }
 
+    private void handleChat(Player player, String[] args) {
+        if (args.length < 2) {
+            messages.send(player, "chat.usage", baseCommand);
+            return;
+        }
+        String raw = joinArgs(args, 1).replace('\n', ' ').replace('\r', ' ').trim();
+        if (raw.isEmpty()) {
+            messages.send(player, "chat.empty");
+            return;
+        }
+        String message = raw.length() > 256 ? raw.substring(0, 256) : raw;
+        String encoded = Base64.getEncoder().encodeToString(message.getBytes(StandardCharsets.UTF_8));
+        execute(player,
+                () -> network.farmChat(player, encoded),
+                result -> {
+                    // broadcast will deliver the formatted message to the sender as well
+                },
+                messages.format("chat.failure-prefix"),
+                false);
+    }
+
+    private void handleKick(Player player, String[] args) {
+        if (args.length < 3) {
+            messages.send(player, "kick.usage", baseCommand);
+            return;
+        }
+        String target = args[1];
+        if (target.equalsIgnoreCase(player.getName())) {
+            messages.send(player, "kick.self");
+            return;
+        }
+        String reason = String.join(" ", Arrays.copyOfRange(args, 2, args.length)).trim();
+        if (reason.isBlank()) {
+            messages.send(player, "kick.reason-missing");
+            return;
+        }
+        execute(player,
+                () -> network.kickMember(player, target, reason),
+                result -> {
+                    String displayName = target;
+                    JsonObject data = result.data();
+                    if (data != null && data.has("targetName") && !data.get("targetName").isJsonNull()) {
+                        displayName = data.get("targetName").getAsString();
+                    }
+                    messages.send(player, "kick.success", displayName);
+                },
+                messages.format("kick.failure-prefix"),
+                true);
+    }
+
+    private void handlePermissions(Player player, String[] args) {
+        if (menus != null && (args.length == 1 || matches(args[1], "메뉴"))) {
+            menus.openRolePermissions(player);
+            return;
+        }
+
+        if (args.length >= 2 && matches(args[1], "목록")) {
+            String roleFilter = args.length >= 3 ? args[2] : null;
+            execute(player,
+                    () -> network.rolePermissions(player),
+                    result -> displayRolePermissions(player, RolePermissionSnapshot.from(result.data()), roleFilter),
+                    messages.format("permissions.failure-prefix"),
+                    true);
+            return;
+        }
+
+        if (args.length >= 2 && matches(args[1], "설정")) {
+            if (args.length < 5) {
+                messages.send(player, "permissions.update-usage", baseCommand);
+                return;
+            }
+            String roleName = args[2];
+            String rawPrivilege = args[3];
+            String privilege = rawPrivilege.replace(' ', '_').replace('-', '_').toUpperCase(Locale.ROOT);
+            Boolean enabled = parsePermissionState(args[4]);
+            if (enabled == null) {
+                messages.send(player, "permissions.invalid-state");
+                return;
+            }
+            execute(player,
+                    () -> network.updateRolePermission(player, roleName, privilege, enabled),
+                    result -> {
+                        JsonObject data = result.data();
+                        String roleDisplay = getString(data, "displayName", roleName);
+                        String privilegeDisplay = friendlyPrivilegeName(getString(data, "privilege", privilege));
+                        String state = enabled ? "허용" : "차단";
+                        messages.send(player, "permissions.update-success", roleDisplay, privilegeDisplay, state);
+                    },
+                    messages.format("permissions.failure-prefix"),
+                    true);
+            return;
+        }
+
+        messages.send(player, "permissions.subcommands");
+    }
+
     private void handleInfo(Player player, String[] args) {
         String ownerKey = args.length > 1 ? args[1] : player.getUniqueId().toString();
         String cacheKey = ClientCacheKeys.island(ownerKey);
@@ -247,6 +374,185 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
                 },
                 messages.format("info.failure-prefix"),
                 true);
+    }
+
+    private void handleFarmPoints(Player player) {
+        execute(player,
+                () -> network.farmPoints(player),
+                result -> {
+                    JsonObject data = result.data();
+                    if (data == null || !data.has("hasIsland") || !data.get("hasIsland").getAsBoolean()) {
+                        messages.send(player, "points.no-island");
+                        return;
+                    }
+                    String islandName = getString(data, "islandName", player.getName());
+                    long total = data.has("totalPoints") ? data.get("totalPoints").getAsLong() : 0L;
+                    long daily = data.has("dailyPoints") ? data.get("dailyPoints").getAsLong() : 0L;
+                    long weekly = data.has("weeklyPoints") ? data.get("weeklyPoints").getAsLong() : 0L;
+                    messages.send(player, "points.header", islandName);
+                    player.sendMessage(messages.format("points.total", formatNumber(total)));
+                    player.sendMessage(messages.format("points.daily", formatNumber(daily)));
+                    player.sendMessage(messages.format("points.weekly", formatNumber(weekly)));
+                },
+                messages.format("points.failure-prefix"),
+                true);
+    }
+
+    private void handleFarmHopper(Player player) {
+        execute(player,
+                () -> network.farmHopperState(player),
+                result -> {
+                    JsonObject data = result.data();
+                    if (data == null || !data.has("hasIsland") || !data.get("hasIsland").getAsBoolean()) {
+                        messages.send(player, "hopper.no-island");
+                        return;
+                    }
+                    String currentRaw = getString(data, "current", "0");
+                    long limit = data.has("limit") ? safeGetLong(data.get("limit")) : 0L;
+                    messages.send(player, "hopper.summary",
+                            formatBigNumber(currentRaw),
+                            formatNumber(limit));
+                },
+                messages.format("hopper.failure-prefix"),
+                true);
+    }
+
+    private void handleFarmRating(Player player, String[] args) {
+        if (args.length < 2) {
+            messages.send(player, "rating.usage", baseCommand);
+            return;
+        }
+        int ratingValue;
+        try {
+            ratingValue = Integer.parseInt(args[1]);
+        } catch (NumberFormatException ex) {
+            messages.send(player, "rating.invalid-number");
+            return;
+        }
+        if (ratingValue < 0 || ratingValue > 5) {
+            messages.send(player, "rating.invalid-range");
+            return;
+        }
+        int finalRating = ratingValue;
+        execute(player,
+                () -> network.farmRateIsland(player, finalRating),
+                result -> {
+                    JsonObject data = result.data();
+                    int applied = data != null && data.has("rating") ? data.get("rating").getAsInt() : -1;
+                    int previous = data != null && data.has("previousRating") ? data.get("previousRating").getAsInt() : -1;
+                    if (applied <= 0) {
+                        messages.send(player, "rating.cleared");
+                    } else {
+                        messages.send(player, "rating.success", applied);
+                        if (previous >= 0 && previous != applied) {
+                            messages.send(player, "rating.previous", previous);
+                        }
+                    }
+                },
+                messages.format("rating.failure-prefix"),
+                true);
+    }
+
+    private void handleHome(Player player, String[] args) {
+        if (menus == null) {
+            messages.send(player, "general.menu-disabled");
+            return;
+        }
+        if (args.length > 1 && matches(args[1], "설정", "set")) {
+            handleSetHome(player);
+            return;
+        }
+        menus.openHomeWarps(player);
+    }
+
+    private void handleSetHome(Player player) {
+        if (menus == null) {
+            messages.send(player, "general.menu-disabled");
+            return;
+        }
+        menus.requestHomeWarpCreation(player);
+    }
+
+    private void handleWarp(Player player, String[] args) {
+        if (menus == null) {
+            messages.send(player, "general.menu-disabled");
+            return;
+        }
+        if (args.length == 1 || matches(args[1], "메뉴")) {
+            menus.openGlobalWarpBrowser(player, 1);
+            return;
+        }
+        if (matches(args[1], "페이지") && args.length >= 3) {
+            int page = parsePositiveInt(args[2], 1);
+            menus.openGlobalWarpBrowser(player, page);
+            return;
+        }
+        if (isNumeric(args[1])) {
+            int page = parsePositiveInt(args[1], 1);
+            menus.openGlobalWarpBrowser(player, page);
+            return;
+        }
+        menus.openPlayerWarps(player, args[1]);
+    }
+
+    private void handleRules(Player player, String[] args) {
+        if (args.length == 1 || matches(args[1], "목록", "list")) {
+            execute(player,
+                    () -> network.listIslandRules(player),
+                    result -> displayRules(player, result.data()),
+                    messages.format("rules.failure-prefix"),
+                    true);
+            return;
+        }
+
+        if (matches(args[1], "추가", "add")) {
+            if (args.length < 3) {
+                messages.send(player, "rules.add-usage", baseCommand);
+                return;
+            }
+            String ruleText = joinArgs(args, 2).trim();
+            if (ruleText.isEmpty()) {
+                messages.send(player, "rules.add-usage", baseCommand);
+                return;
+            }
+            execute(player,
+                    () -> network.addIslandRule(player, ruleText),
+                    result -> {
+                        JsonObject data = result.data();
+                        String added = getString(data, "added", ruleText);
+                        messages.send(player, "rules.add-success", added);
+                        displayRules(player, data);
+                    },
+                    messages.format("rules.failure-prefix"),
+                    true);
+            return;
+        }
+
+        if (matches(args[1], "삭제", "remove")) {
+            if (args.length < 3) {
+                messages.send(player, "rules.remove-usage", baseCommand);
+                return;
+            }
+            int index = parsePositiveInt(args[2], -1);
+            if (index <= 0) {
+                messages.send(player, "rules.remove-usage", baseCommand);
+                return;
+            }
+            execute(player,
+                    () -> network.removeIslandRule(player, index),
+                    result -> {
+                        JsonObject data = result.data();
+                        int removedIndex = data != null && data.has("removedIndex") ? data.get("removedIndex").getAsInt() : index;
+                        String removed = getString(data, "removed", "");
+                        messages.send(player, "rules.remove-success", removedIndex, removed);
+                        displayRules(player, data);
+                    },
+                    messages.format("rules.failure-prefix"),
+                    true);
+            return;
+        }
+
+        messages.send(player, "rules.subcommands", baseCommand);
     }
 
     private void handleRanking(Player player, String[] args) {
@@ -386,6 +692,344 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
                 !wantMenu);
     }
 
+    private void handleBank(Player player, String[] args) {
+        boolean wantMenu = args.length == 1 || matches(args[1], "메뉴", "menu");
+        if (menus != null && wantMenu) {
+            menus.openBankMenu(player);
+            return;
+        }
+
+        if (args.length == 1 || matches(args[1], "정보", "info", "state")) {
+            requestBankState(player);
+            return;
+        }
+
+        if (matches(args[1], "입금", "deposit")) {
+            if (args.length < 3) {
+                player.sendMessage(ChatColor.RED + "[Skyblock] 입금할 금액을 입력해주세요.");
+                return;
+            }
+            BigDecimal amount = parseAmount(args[2]);
+            if (amount == null) {
+                player.sendMessage(ChatColor.RED + "[Skyblock] 양의 숫자로 금액을 입력해주세요.");
+                return;
+            }
+            execute(player,
+                    () -> network.bankDeposit(player, amount),
+                    result -> {
+                        BigDecimal deposited = getDecimal(result.data(), "amount");
+                        BigDecimal balance = getDecimal(result.data(), "balance");
+                        player.sendMessage(ChatColor.GREEN + "[Skyblock] " + formatMoney(deposited) + "원을 금고에 입금했습니다. 현재 잔액: " + formatMoney(balance) + "원");
+                    },
+                    "입금에 실패했습니다",
+                    true);
+            return;
+        }
+
+        if (matches(args[1], "출금", "withdraw")) {
+            if (args.length < 3) {
+                player.sendMessage(ChatColor.RED + "[Skyblock] 출금할 금액을 입력해주세요.");
+                return;
+            }
+            BigDecimal amount = parseAmount(args[2]);
+            if (amount == null) {
+                player.sendMessage(ChatColor.RED + "[Skyblock] 양의 숫자로 금액을 입력해주세요.");
+                return;
+            }
+            execute(player,
+                    () -> network.bankWithdraw(player, amount),
+                    result -> {
+                        BigDecimal withdrawn = getDecimal(result.data(), "amount");
+                        BigDecimal balance = getDecimal(result.data(), "balance");
+                        player.sendMessage(ChatColor.GREEN + "[Skyblock] " + formatMoney(withdrawn) + "원을 금고에서 출금했습니다. 현재 잔액: " + formatMoney(balance) + "원");
+                    },
+                    "출금에 실패했습니다",
+                    true);
+            return;
+        }
+
+        if (matches(args[1], "기록", "history", "logs")) {
+            int page = args.length >= 3 ? parsePageArgument(args, 1) : 1;
+            execute(player,
+                    () -> network.bankHistory(player, page),
+                    result -> displayBankHistory(player, BankHistoryPage.from(result.data())),
+                    "은행 기록을 불러오지 못했습니다",
+                    true);
+            return;
+        }
+
+        if (matches(args[1], "잠금", "lock")) {
+            if (args.length < 3) {
+                player.sendMessage(ChatColor.RED + "[Skyblock] /" + baseCommand + " 금고 잠금 [설정|해제]");
+                return;
+            }
+            boolean lock;
+            if (matches(args[2], "설정", "set", "enable")) {
+                lock = true;
+            } else if (matches(args[2], "해제", "unset", "disable")) {
+                lock = false;
+            } else {
+                player.sendMessage(ChatColor.RED + "[Skyblock] /" + baseCommand + " 금고 잠금 [설정|해제]");
+                return;
+            }
+            execute(player,
+                    () -> network.bankSetLock(player, lock),
+                    result -> {
+                        boolean locked = result.data() != null && result.data().has("locked") && result.data().get("locked").getAsBoolean();
+                        player.sendMessage(ChatColor.GREEN + "[Skyblock] 금고 잠금을 " + (locked ? "설정" : "해제") + "했습니다.");
+                    },
+                    lock ? "금고 잠금을 설정하지 못했습니다" : "금고 잠금을 해제하지 못했습니다",
+                    true);
+            return;
+        }
+
+        player.sendMessage(ChatColor.GRAY + "[Skyblock] /" + baseCommand + " 금고 [입금|출금|기록|잠금]");
+    }
+
+    private void handleCoop(Player player, String[] args) {
+        if (menus != null && (args.length == 1 || matches(args[1], "메뉴", "menu"))) {
+            menus.openCoopMenu(player);
+            return;
+        }
+
+        if (args.length == 1 || matches(args[1], "목록", "list")) {
+            execute(player,
+                    () -> network.listCoopPlayers(player),
+                    result -> displayCoopList(player, result.data()),
+                    "알바 목록을 불러오지 못했습니다",
+                    true);
+            return;
+        }
+
+        if (matches(args[1], "추가", "add")) {
+            if (args.length < 3) {
+                player.sendMessage(ChatColor.RED + "[Skyblock] 고용할 닉네임을 입력해주세요.");
+                return;
+            }
+            String target = args[2];
+            execute(player,
+                    () -> network.addCoopPlayer(player, target),
+                    result -> {
+                        String name = playerNameFrom(result.data(), target);
+                        player.sendMessage(ChatColor.GREEN + "[Skyblock] " + name + "님을 알바로 고용했습니다.");
+                    },
+                    "알바 고용에 실패했습니다",
+                    true);
+            return;
+        }
+
+        if (matches(args[1], "삭제", "remove", "해고", "uncoop")) {
+            if (args.length < 3) {
+                player.sendMessage(ChatColor.RED + "[Skyblock] 해고할 닉네임을 입력해주세요.");
+                return;
+            }
+            String target = args[2];
+            execute(player,
+                    () -> network.removeCoopPlayer(player, target),
+                    result -> {
+                        String name = playerNameFrom(result.data(), target);
+                        player.sendMessage(ChatColor.GREEN + "[Skyblock] " + name + "님을 알바에서 해고했습니다.");
+                    },
+                    "알바 해고에 실패했습니다",
+                    true);
+            return;
+        }
+
+        player.sendMessage(ChatColor.GRAY + "[Skyblock] /" + baseCommand + " 알바 [목록|추가|삭제]");
+    }
+
+    private void handleBan(Player player, String[] args) {
+        if (menus != null && (args.length == 1 || matches(args[1], "메뉴", "menu"))) {
+            menus.openBanMenu(player);
+            return;
+        }
+
+        if (args.length == 1 || matches(args[1], "목록", "list")) {
+            execute(player,
+                    () -> network.listBannedPlayers(player),
+                    result -> displayBanList(player, result.data()),
+                    "차단 목록을 불러오지 못했습니다",
+                    true);
+            return;
+        }
+
+        if (matches(args[1], "추가", "add")) {
+            if (args.length < 3) {
+                player.sendMessage(ChatColor.RED + "[Skyblock] 차단할 닉네임을 입력해주세요.");
+                return;
+            }
+            String target = args[2];
+            execute(player,
+                    () -> network.addBannedPlayer(player, target),
+                    result -> {
+                        String name = playerNameFrom(result.data(), target);
+                        player.sendMessage(ChatColor.GREEN + "[Skyblock] " + name + "님을 차단했습니다.");
+                    },
+                    "플레이어를 차단하지 못했습니다",
+                    true);
+            return;
+        }
+
+        if (matches(args[1], "삭제", "remove", "해제", "unban")) {
+            if (args.length < 3) {
+                player.sendMessage(ChatColor.RED + "[Skyblock] 차단을 해제할 닉네임을 입력해주세요.");
+                return;
+            }
+            String target = args[2];
+            execute(player,
+                    () -> network.removeBannedPlayer(player, target),
+                    result -> {
+                        String name = playerNameFrom(result.data(), target);
+                        player.sendMessage(ChatColor.GREEN + "[Skyblock] " + name + "님의 차단을 해제했습니다.");
+                    },
+                    "차단 해제에 실패했습니다",
+                    true);
+            return;
+        }
+
+        player.sendMessage(ChatColor.GRAY + "[Skyblock] /" + baseCommand + " 차단 [목록|추가|삭제]");
+    }
+
+    private void requestBankState(Player player) {
+        execute(player,
+                () -> network.bankState(player),
+                result -> displayBankState(player, BankSnapshot.from(result.data())),
+                "은행 정보를 불러오지 못했습니다",
+                true);
+    }
+
+    private void displayBankState(Player player, BankSnapshot snapshot) {
+        player.sendMessage(ChatColor.GOLD + "[Skyblock] 금고 정보");
+        player.sendMessage(ChatColor.GRAY + " - 잔액: " + ChatColor.YELLOW + formatMoney(snapshot.balance()) + "원");
+        if (snapshot.hasLimit()) {
+            player.sendMessage(ChatColor.GRAY + " - 한도: " + ChatColor.AQUA + formatMoney(snapshot.limit()) + "원");
+        }
+        String lockState = snapshot.locked() ? ChatColor.RED + "잠금" : ChatColor.GREEN + "해제";
+        player.sendMessage(ChatColor.GRAY + " - 잠금 상태: " + lockState);
+        player.sendMessage(ChatColor.GRAY + "사용 가능한 명령어: " + ChatColor.YELLOW + "/" + baseCommand + " 금고 입금 [금액], 출금 [금액], 기록 [페이지], 잠금 [설정|해제]");
+        if (menus != null) {
+            player.sendMessage(ChatColor.GRAY + "GUI: " + ChatColor.YELLOW + "/" + baseCommand + " 금고 메뉴");
+        }
+    }
+
+    private void displayBankHistory(Player player, BankHistoryPage history) {
+        player.sendMessage(ChatColor.GOLD + "[Skyblock] 금고 거래 기록 " + ChatColor.GRAY + "(" + history.page() + "/" + history.totalPages() + ")");
+        if (history.entries().isEmpty()) {
+            player.sendMessage(ChatColor.GRAY + "  기록이 존재하지 않습니다.");
+        } else {
+            for (BankHistoryPage.Entry entry : history.entries()) {
+                String actor = entry.playerName() != null ? entry.playerName() : "팜 시스템";
+                ChatColor actionColor = bankActionColor(entry.action());
+                String action = describeBankAction(entry.action());
+                String amount = formatMoney(entry.amount());
+                String timestamp = DATE_FORMAT.format(Instant.ofEpochMilli(entry.time()));
+                player.sendMessage(ChatColor.GRAY + "  - " + ChatColor.AQUA + actor + ChatColor.GRAY + " | " + actionColor + action + ChatColor.GRAY + " | " + ChatColor.YELLOW + amount + "원" + ChatColor.GRAY + " | " + ChatColor.DARK_GRAY + timestamp);
+                if (entry.failureReason() != null && !entry.failureReason().isBlank()) {
+                    player.sendMessage(ChatColor.DARK_RED + "    사유: " + entry.failureReason());
+                }
+            }
+        }
+        if (history.hasNext()) {
+            player.sendMessage(ChatColor.GRAY + "  다음 페이지: " + ChatColor.YELLOW + "/" + baseCommand + " 금고 기록 " + (history.page() + 1));
+        }
+        if (history.hasPrevious()) {
+            player.sendMessage(ChatColor.GRAY + "  이전 페이지: " + ChatColor.YELLOW + "/" + baseCommand + " 금고 기록 " + (history.page() - 1));
+        }
+    }
+
+    private void displayCoopList(Player player, JsonObject data) {
+        JsonArray array = data != null && data.has("players") && data.get("players").isJsonArray()
+                ? data.getAsJsonArray("players")
+                : new JsonArray();
+        List<PlayerSummary> entries = PlayerSummary.from(array);
+        int limit = data != null && data.has("limit") && data.get("limit").isJsonPrimitive()
+                ? safeGetInt(data.get("limit"))
+                : entries.size();
+        player.sendMessage(ChatColor.GOLD + "[Skyblock] 알바 목록 " + ChatColor.GRAY + "(" + entries.size() + "/" + limit + ")");
+        if (entries.isEmpty()) {
+            player.sendMessage(ChatColor.GRAY + "  등록된 알바가 없습니다.");
+            return;
+        }
+        for (PlayerSummary entry : entries) {
+            player.sendMessage(ChatColor.GRAY + "  - " + ChatColor.AQUA + entry.name() + ChatColor.GRAY + " | " + formatPlayerStatus(entry));
+        }
+    }
+
+    private void displayBanList(Player player, JsonObject data) {
+        JsonArray array = data != null && data.has("players") && data.get("players").isJsonArray()
+                ? data.getAsJsonArray("players")
+                : new JsonArray();
+        List<PlayerSummary> entries = PlayerSummary.from(array);
+        player.sendMessage(ChatColor.GOLD + "[Skyblock] 차단 목록 " + ChatColor.GRAY + "(" + entries.size() + "명)");
+        if (entries.isEmpty()) {
+            player.sendMessage(ChatColor.GRAY + "  차단된 플레이어가 없습니다.");
+            return;
+        }
+        for (PlayerSummary entry : entries) {
+            player.sendMessage(ChatColor.GRAY + "  - " + ChatColor.AQUA + entry.name() + ChatColor.GRAY + " | " + formatPlayerStatus(entry));
+        }
+    }
+
+    private String describeBankAction(String action) {
+        if (action == null) {
+            return "알 수 없음";
+        }
+        return switch (action) {
+            case "DEPOSIT_COMPLETED" -> "입금";
+            case "DEPOSIT_FAILED" -> "입금 실패";
+            case "WITHDRAW_COMPLETED" -> "출금";
+            case "WITHDRAW_FAILED" -> "출금 실패";
+            default -> action;
+        };
+    }
+
+    private ChatColor bankActionColor(String action) {
+        if (action == null) {
+            return ChatColor.GRAY;
+        }
+        return switch (action) {
+            case "DEPOSIT_COMPLETED", "WITHDRAW_COMPLETED" -> ChatColor.GREEN;
+            case "DEPOSIT_FAILED", "WITHDRAW_FAILED" -> ChatColor.RED;
+            default -> ChatColor.GRAY;
+        };
+    }
+
+    private BigDecimal parseAmount(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String normalised = raw.replace(",", "");
+        try {
+            BigDecimal value = new BigDecimal(normalised);
+            return value.signum() > 0 ? value : null;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private String formatMoney(BigDecimal value) {
+        BigDecimal safe = value != null ? value : BigDecimal.ZERO;
+        if (menus != null) {
+            return menus.formatMoney(safe);
+        }
+        NumberFormat formatter = NumberFormat.getInstance(Locale.KOREA);
+        formatter.setGroupingUsed(true);
+        formatter.setMaximumFractionDigits(0);
+        formatter.setRoundingMode(RoundingMode.DOWN);
+        return formatter.format(safe);
+    }
+
+    private BigDecimal getDecimal(JsonObject data, String key) {
+        if (data == null || key == null || !data.has(key) || data.get(key).isJsonNull()) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            return new BigDecimal(data.get(key).getAsString());
+        } catch (Exception ex) {
+            return BigDecimal.ZERO;
+        }
+    }
+
     private void handleBorder(Player player, String[] args) {
         if (menus != null && (args.length == 1 || matches(args[1], "메뉴"))) {
             menus.openBorderMenu(player);
@@ -424,6 +1068,174 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
         }
 
         messages.send(player, "border.subcommands");
+    }
+
+    private void handleManage(Player player, String[] args) {
+        if (!player.hasPermission("ssb2.command.farm.admin")) {
+            messages.send(player, "manage.permission-required");
+            return;
+        }
+
+        if (args.length == 1 || matches(args[1], "도움말", "help")) {
+            displayManageHelp(player);
+            return;
+        }
+
+        String sub = args[1];
+        if (matches(sub, "권한초기화", "resetperm", "resetperms", "resetpermissions")) {
+            if (args.length < 3) {
+                messages.send(player, "manage.reset-usage", baseCommand);
+                return;
+            }
+            String target = args[2];
+            execute(player,
+                    () -> network.adminResetPermissions(player, target),
+                    result -> {
+                        JsonObject data = result.data();
+                        String name = getString(data, "targetName", target);
+                        String islandId = getString(data, "islandId", "UNKNOWN");
+                        messages.send(player, "manage.reset-success", name, islandId);
+                    },
+                    messages.format("manage.reset-failure-prefix"),
+                    true);
+            return;
+        }
+
+        if (matches(sub, "uuid")) {
+            if (args.length < 3) {
+                messages.send(player, "manage.uuid-usage", baseCommand);
+                return;
+            }
+            String target = args[2];
+            execute(player,
+                    () -> network.adminLookupIslandUuid(player, target),
+                    result -> {
+                        JsonObject data = result.data();
+                        String islandId = getString(data, "islandId", "UNKNOWN");
+                        String name = getString(data, "playerName", target);
+                        messages.send(player, "manage.uuid-success", name, islandId);
+                    },
+                    messages.format("manage.uuid-failure-prefix"),
+                    true);
+            return;
+        }
+
+        if (matches(sub, "주인", "owner")) {
+            if (args.length < 3) {
+                messages.send(player, "manage.owner-usage", baseCommand);
+                return;
+            }
+            String islandId = args[2];
+            execute(player,
+                    () -> network.adminLookupIslandOwner(player, islandId),
+                    result -> {
+                        JsonObject data = result.data();
+                        String ownerName = getString(data, "ownerName", "알 수 없음");
+                        String ownerUuid = getString(data, "ownerUuid", "알 수 없음");
+                        messages.send(player, "manage.owner-success", ownerName, ownerUuid);
+                    },
+                    messages.format("manage.owner-failure-prefix"),
+                    true);
+            return;
+        }
+
+        if (matches(sub, "도박장")) {
+            if (args.length < 3) {
+                messages.send(player, "manage.gambling-usage", baseCommand);
+                return;
+            }
+            String target = args[2];
+            execute(player,
+                    () -> network.adminToggleGambling(player, target),
+                    result -> {
+                        JsonObject data = result.data();
+                        boolean enabled = data != null && data.has("enabled") && data.get("enabled").getAsBoolean();
+                        String name = getString(data, "playerName", target);
+                        messages.send(player,
+                                enabled ? "manage.gambling-enabled" : "manage.gambling-disabled",
+                                name);
+                    },
+                    messages.format("manage.gambling-failure-prefix"),
+                    true);
+            return;
+        }
+
+        if (matches(sub, "마력보상", "점수보상")) {
+            if (menus == null) {
+                messages.send(player, "manage.menu-disabled");
+                return;
+            }
+            if (args.length < 3) {
+                messages.send(player, "manage.power-usage", baseCommand);
+                return;
+            }
+            int tier = parsePositiveInt(args[2], -1);
+            if (!POWER_REWARD_TIERS.contains(tier)) {
+                messages.send(player, "manage.power-invalid-tier");
+                return;
+            }
+            menus.openPowerRewardEditor(player, tier);
+            return;
+        }
+
+        if (matches(sub, "순위보상")) {
+            if (menus == null) {
+                messages.send(player, "manage.menu-disabled");
+                return;
+            }
+            if (args.length < 3) {
+                messages.send(player, "manage.top-usage", baseCommand);
+                return;
+            }
+            int rank = parsePositiveInt(args[2], -1);
+            if (rank <= 0) {
+                messages.send(player, "manage.top-invalid-rank");
+                return;
+            }
+            menus.openTopRewardEditor(player, rank);
+            return;
+        }
+
+        if (matches(sub, "순위받기")) {
+            if (menus == null) {
+                messages.send(player, "manage.menu-disabled");
+                return;
+            }
+            if (args.length < 3) {
+                messages.send(player, "manage.top-usage", baseCommand);
+                return;
+            }
+            int rank = parsePositiveInt(args[2], -1);
+            if (rank <= 0) {
+                messages.send(player, "manage.top-invalid-rank");
+                return;
+            }
+            execute(player,
+                    () -> network.adminGiveTopRewards(player, rank),
+                    result -> {
+                        JsonArray array = result.data() != null && result.data().has("items")
+                                ? result.data().getAsJsonArray("items")
+                                : new JsonArray();
+                        List<ItemStack> items = menus != null ? menus.decodeRewardItems(array) : List.of();
+                        if (items.isEmpty()) {
+                            messages.send(player, "manage.top-give-empty");
+                            return;
+                        }
+                        List<ItemStack> clones = items.stream().map(ItemStack::clone).collect(Collectors.toList());
+                        ItemStack[] contents = clones.toArray(new ItemStack[0]);
+                        int totalAmount = clones.stream().mapToInt(ItemStack::getAmount).sum();
+                        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(contents);
+                        int droppedAmount = leftovers.values().stream().mapToInt(ItemStack::getAmount).sum();
+                        leftovers.values().forEach(stack -> player.getWorld().dropItemNaturally(player.getLocation(), stack));
+                        messages.send(player, "manage.top-give-success", rank, totalAmount, droppedAmount);
+                    },
+                    messages.format("manage.top-give-failure-prefix"),
+                    true);
+            return;
+        }
+
+        messages.send(player, "manage.unknown-subcommand", sub);
+        displayManageHelp(player);
     }
 
     private void handleDisband(Player player, String[] args) {
@@ -530,6 +1342,12 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
                 messages.format("invite.list-footer", baseCommand));
     }
 
+    private void displayManageHelp(Player player) {
+        for (String line : messages.list("manage.help-lines", baseCommand)) {
+            player.sendMessage(line);
+        }
+    }
+
     private void displayMemberList(Player player, JsonObject data, int page) {
         JsonArray members = data != null && data.has("members") && data.get("members").isJsonArray()
                 ? data.getAsJsonArray("members")
@@ -543,12 +1361,55 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
             String name = getString(member, "name", "알 수 없음");
             String role = getString(member, "role", "UNKNOWN");
             boolean online = member.has("online") && member.get("online").getAsBoolean();
-            lines.add(ChatColor.GRAY + "- " + ChatColor.GREEN + name + ChatColor.GRAY + " (" + translateRole(role) + ", " + (online ? ChatColor.AQUA + "온라인" : ChatColor.DARK_GRAY + "오프라인") + ChatColor.GRAY + ")");
+            String server = getString(member, "server", "");
+            String status = online ? ChatColor.AQUA + "온라인" : ChatColor.DARK_GRAY + "오프라인";
+            if (server != null && !server.isBlank()) {
+                status += ChatColor.GRAY + " @" + ChatColor.YELLOW + server;
+            }
+            lines.add(ChatColor.GRAY + "- " + ChatColor.GREEN + name + ChatColor.GRAY + " (" + translateRole(role) + ", " + status + ChatColor.GRAY + ")");
         }
         displayPagedList(player, lines, page,
                 messages.format("members.header"),
                 messages.format("members.empty"),
                 messages.format("members.footer", baseCommand));
+    }
+
+    private void displayRolePermissions(Player player, RolePermissionSnapshot snapshot, String roleFilter) {
+        if (snapshot.roles().isEmpty()) {
+            messages.send(player, "permissions.failure-prefix");
+            return;
+        }
+        if (roleFilter == null || roleFilter.isBlank()) {
+            for (String line : messages.list("permissions.list-header")) {
+                player.sendMessage(line);
+            }
+            if (!snapshot.canManage()) {
+                player.sendMessage(ChatColor.RED + "[Skyblock] 권한을 변경할 수 있는 권한이 없어 조회만 가능합니다.");
+            }
+            snapshot.roles().forEach(role ->
+                    player.sendMessage(messages.format("permissions.list-line",
+                            role.displayName(),
+                            role.enabledCount(),
+                            role.totalPrivileges())));
+            player.sendMessage(messages.format("permissions.list-footer", baseCommand));
+            return;
+        }
+
+        RolePermissionSnapshot.Role role = snapshot.findRole(roleFilter).orElse(null);
+        if (role == null) {
+            messages.send(player, "permissions.invalid-role", roleFilter);
+            return;
+        }
+        player.sendMessage(messages.format("permissions.list-role-header",
+                role.displayName(),
+                role.enabledCount(),
+                role.totalPrivileges()));
+        for (RolePermissionSnapshot.Privilege privilege : role.privileges()) {
+            String state = privilege.enabled() ? ChatColor.GREEN + "허용" : ChatColor.RED + "차단";
+            player.sendMessage(messages.format("permissions.list-role-line",
+                    friendlyPrivilegeName(privilege.name()),
+                    state));
+        }
     }
 
     private void displayRankingTop(Player player, JsonObject data, int page) {
@@ -613,8 +1474,9 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
             String title = getString(reward, "title", "보상");
             int moonlight = reward.has("moonlight") ? reward.get("moonlight").getAsInt() : 0;
             int farmPoints = reward.has("farmPoints") ? reward.get("farmPoints").getAsInt() : 0;
+            int total = Math.max(0, moonlight) + Math.max(0, farmPoints);
             player.sendMessage(ChatColor.YELLOW + "- 순위 " + minRank + (minRank == maxRank ? "" : "~" + maxRank) + ChatColor.GRAY + " : " + ChatColor.GOLD + title);
-            player.sendMessage(ChatColor.GRAY + "  · 달빛 " + formatNumber(moonlight) + " / 팜 포인트 " + formatNumber(farmPoints));
+            player.sendMessage(ChatColor.GRAY + "  · 팜 포인트 " + formatNumber(total));
         }
     }
 
@@ -663,6 +1525,38 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
                 messages.format("history.list-header"),
                 messages.format("history.list-empty"),
                 messages.format("history.list-footer", baseCommand));
+    }
+
+    private void displayRules(Player player, JsonObject data) {
+        JsonArray rules = data != null && data.has("rules") && data.get("rules").isJsonArray()
+                ? data.getAsJsonArray("rules")
+                : new JsonArray();
+        String islandName = getString(data, "islandName", player.getName());
+        int max = data != null && data.has("max") ? data.get("max").getAsInt() : 5;
+        int count = rules.size();
+        player.sendMessage(messages.format("rules.header", islandName, count, max));
+        if (count == 0) {
+            messages.send(player, "rules.empty");
+        } else {
+            for (int i = 0; i < count; i++) {
+                JsonElement element = rules.get(i);
+                String ruleText;
+                if (element == null || element.isJsonNull()) {
+                    ruleText = "";
+                } else {
+                    try {
+                        ruleText = element.getAsString();
+                    } catch (Exception ex) {
+                        ruleText = element.toString();
+                    }
+                }
+                player.sendMessage(messages.format("rules.line", i + 1, ruleText));
+            }
+        }
+        boolean editable = data != null && data.has("editable") && data.get("editable").getAsBoolean();
+        if (editable) {
+            messages.send(player, "rules.edit-hint", max, baseCommand);
+        }
     }
 
     private void displayHistoryDetail(Player player, JsonObject data) {
@@ -828,6 +1722,37 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private Boolean parsePermissionState(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String lower = raw.toLowerCase(Locale.ROOT);
+        return switch (lower) {
+            case "허용", "allow", "true", "on", "enable", "enabled" -> Boolean.TRUE;
+            case "차단", "deny", "false", "off", "disable", "disabled" -> Boolean.FALSE;
+            default -> null;
+        };
+    }
+
+    private String friendlyPrivilegeName(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "알 수 없음";
+        }
+        String cleaned = raw.replace('-', '_').replace(' ', '_');
+        String[] parts = cleaned.toLowerCase(Locale.ROOT).split("_");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            if (part.isEmpty()) {
+                continue;
+            }
+            if (builder.length() > 0) {
+                builder.append(' ');
+            }
+            builder.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return builder.toString();
+    }
+
     private String translateRole(String role) {
         return switch (role.toUpperCase(Locale.ROOT)) {
             case "OWNER" -> "팜장";
@@ -839,7 +1764,7 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
 
     private String translateCurrency(String currency) {
         return switch (currency.toLowerCase(Locale.ROOT)) {
-            case "moonlight" -> "달빛";
+            case "moonlight" -> "팜 포인트";
             case "farmpoint", "farm_points", "farm" -> "팜 포인트";
             case "none" -> "무료";
             default -> currency;
@@ -863,8 +1788,74 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
         return obj.get(key).getAsString();
     }
 
+    private String playerNameFrom(JsonObject data, String fallback) {
+        if (data == null || !data.has("player") || !data.get("player").isJsonObject()) {
+            return fallback;
+        }
+        return getString(data.getAsJsonObject("player"), "name", fallback);
+    }
+
+    private int safeGetInt(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return 0;
+        }
+        try {
+            return element.getAsInt();
+        } catch (Exception ex) {
+            try {
+                return Integer.parseInt(element.getAsString());
+            } catch (Exception ignored) {
+                return 0;
+            }
+        }
+    }
+
+    private long safeGetLong(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return 0L;
+        }
+        try {
+            return element.getAsLong();
+        } catch (Exception ex) {
+            try {
+                return Long.parseLong(element.getAsString());
+            } catch (Exception ignored) {
+                return 0L;
+            }
+        }
+    }
+
+    private String formatPlayerStatus(PlayerSummary entry) {
+        String status = entry.online() ? ChatColor.GREEN + "온라인" : ChatColor.RED + "오프라인";
+        if (entry.server() != null && !entry.server().isBlank()) {
+            status += ChatColor.GRAY + " @" + ChatColor.YELLOW + entry.server();
+        }
+        return status;
+    }
+
     private String formatNumber(long value) {
         return String.format(Locale.KOREA, "%,d", value);
+    }
+
+    private String formatBigNumber(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "0";
+        }
+        try {
+            BigInteger value = new BigInteger(raw);
+            NumberFormat formatter = NumberFormat.getInstance(Locale.KOREA);
+            formatter.setGroupingUsed(true);
+            return formatter.format(value);
+        } catch (NumberFormatException ex) {
+            return raw;
+        }
+    }
+
+    private String joinArgs(String[] args, int start) {
+        if (args == null || args.length <= start) {
+            return "";
+        }
+        return String.join(" ", Arrays.copyOfRange(args, start, args.length));
     }
 
     private void maybeConnectToIslandServer(Player player) {
@@ -888,7 +1879,7 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return filter(Arrays.asList("메뉴", "도움말", "퀘스트", "초대", "초대목록", "수락", "거절", "구성원", "정보", "순위", "히스토리", "보상", "상점", "경계", "해체", "disband", "관리자"), args[0]);
+            return filter(Arrays.asList("메뉴", "도움말", "퀘스트", "초대", "초대목록", "수락", "거절", "구성원", "채팅", "정보", "포인트", "호퍼", "평가", "홈", "sethome", "워프", "규칙", "순위", "히스토리", "보상", "상점", "금고", "알바", "차단", "권한", "경계", "해체", "관리자"), args[0]);
         }
 
         String sub = args[0];
@@ -921,6 +1912,13 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
             return Collections.emptyList();
         }
 
+        if (matches(sub, "채팅", "chat")) {
+            if (args.length == 2) {
+                return Collections.singletonList("<메시지>");
+            }
+            return Collections.emptyList();
+        }
+
         if (matches(sub, "구성원")) {
             if (args.length == 2) {
                 return filter(Arrays.asList("메뉴", "페이지"), args[1]);
@@ -931,12 +1929,93 @@ public final class FarmCommand implements CommandExecutor, TabCompleter {
             return Collections.emptyList();
         }
 
+        if (matches(sub, "홈", "home", "homes", "gha")) {
+            if (args.length == 2) {
+                return filter(Arrays.asList("설정"), args[1]);
+            }
+            return Collections.emptyList();
+        }
+
+        if (matches(sub, "워프", "warp", "warps", "dnjvm")) {
+            if (args.length == 2) {
+                return filter(Arrays.asList("메뉴", "페이지"), args[1]);
+            }
+            if (args.length == 3 && matches(args[1], "페이지")) {
+                return Collections.singletonList("<번호>");
+            }
+            return Collections.emptyList();
+        }
+
+        if (matches(sub, "규칙", "rule", "rules", "rbclr")) {
+            if (args.length == 2) {
+                return filter(Arrays.asList("목록", "추가", "삭제"), args[1]);
+            }
+            if (matches(args[1], "추가", "add")) {
+                return Collections.singletonList("<내용>");
+            }
+            if (matches(args[1], "삭제", "remove") && args.length == 3) {
+                return Collections.singletonList("<번호>");
+            }
+            return Collections.emptyList();
+        }
+
+        if (matches(sub, "알바", "coop")) {
+            if (args.length == 2) {
+                return filter(Arrays.asList("목록", "추가", "삭제", "메뉴"), args[1]);
+            }
+            if (matches(args[1], "추가", "add") || matches(args[1], "삭제", "remove", "해고", "uncoop")) {
+                return Collections.singletonList("<닉네임>");
+            }
+            return Collections.emptyList();
+        }
+
+        if (matches(sub, "차단", "ban")) {
+            if (args.length == 2) {
+                return filter(Arrays.asList("목록", "추가", "삭제", "메뉴"), args[1]);
+            }
+            if (matches(args[1], "추가", "add") || matches(args[1], "삭제", "remove", "해제", "unban")) {
+                return Collections.singletonList("<닉네임>");
+            }
+            return Collections.emptyList();
+        }
+
+        if (matches(sub, "평가", "vudrk", "rating")) {
+            if (args.length == 2) {
+                return filter(Arrays.asList("0", "1", "2", "3", "4", "5"), args[1]);
+            }
+            return Collections.emptyList();
+        }
+
+        if (matches(sub, "권한")) {
+            if (args.length == 2) {
+                return filter(Arrays.asList("메뉴", "목록", "설정"), args[1]);
+            }
+            if (matches(args[1], "목록")) {
+                if (args.length == 3) {
+                    return Collections.singletonList("<역할>");
+                }
+                return Collections.emptyList();
+            }
+            if (matches(args[1], "설정")) {
+                if (args.length == 3) {
+                    return Collections.singletonList("<역할>");
+                }
+                if (args.length == 4) {
+                    return Collections.singletonList("<권한>");
+                }
+                if (args.length == 5) {
+                    return filter(Arrays.asList("허용", "차단"), args[4]);
+                }
+            }
+            return Collections.emptyList();
+        }
+
         if (matches(sub, "순위")) {
             if (args.length == 2) {
                 return filter(Arrays.asList("메뉴", "기여도", "스냅샷", "페이지"), args[1]);
             }
             if (args.length == 3 && matches(args[1], "기여도")) {
-                return Collections.singletonList("<섬ID>");
+                return Collections.singletonList("<팜ID>");
             }
             if (args.length == 3 && matches(args[1], "스냅샷", "페이지")) {
                 return Collections.singletonList("<값>");

@@ -17,6 +17,7 @@ import wiki.creeper.superiorskyblockIntegeration.api.events.NetworkInviteRevoked
 import wiki.creeper.superiorskyblockIntegeration.api.events.NetworkIslandDisbandedEvent;
 import wiki.creeper.superiorskyblockIntegeration.api.events.NetworkIslandUpdatedEvent;
 import wiki.creeper.superiorskyblockIntegeration.api.events.NetworkMemberAddedEvent;
+import wiki.creeper.superiorskyblockIntegeration.api.events.NetworkMemberKickedEvent;
 import wiki.creeper.superiorskyblockIntegeration.api.events.NetworkMemberRemovedEvent;
 import wiki.creeper.superiorskyblockIntegeration.client.cache.ClientCache;
 import wiki.creeper.superiorskyblockIntegeration.client.menu.IslandMenuManager;
@@ -299,6 +300,14 @@ public final class ClientRedisListener extends RedisPubSubAdapter<String, String
                     parseUuid(asString(data, "memberUuid")),
                     asString(data, "memberName"),
                     asString(data, "cause"),
+                    data));
+            case "member.kicked" -> pm.callEvent(new NetworkMemberKickedEvent(
+                    actorUuid,
+                    islandUuid,
+                    islandName,
+                    parseUuid(asString(data, "memberUuid")),
+                    asString(data, "memberName"),
+                    asString(data, "reason"),
                     data));
             case "island.updated" -> pm.callEvent(new NetworkIslandUpdatedEvent(
                     actorUuid,

@@ -16,8 +16,6 @@ import wiki.creeper.superiorskyblockIntegeration.client.services.FarmRewardServi
  */
 public final class FarmRewardMenu extends AbstractMenu {
 
-    private static final int[] REWARD_SLOTS = {10, 12, 14, 16, 19, 21, 23, 25};
-
     private final List<FarmRewardService.RewardTier> rewards;
 
     public FarmRewardMenu(IslandMenuManager manager, List<FarmRewardService.RewardTier> rewards) {
@@ -32,31 +30,39 @@ public final class FarmRewardMenu extends AbstractMenu {
 
     @Override
     protected int size() {
-        return 27;
+        return 45;
     }
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        fill(icon(Material.GRAY_STAINED_GLASS_PANE, " "));
-
+        decorateDefault(inventory);
+        placeNavigation(backButton("메인 메뉴"), null, mainMenuButton());
         if (rewards == null || rewards.isEmpty()) {
-            setItem(13, icon(Material.BARRIER,
+            setItem(22, icon(Material.BARRIER,
                     ChatColor.YELLOW + "등록된 보상이 없습니다.",
                     ChatColor.GRAY + "관리자가 설정을 확인해야 합니다."));
         } else {
-            for (int i = 0; i < rewards.size() && i < REWARD_SLOTS.length; i++) {
-                FarmRewardService.RewardTier tier = rewards.get(i);
-                int slot = REWARD_SLOTS[i];
-                setItem(slot, toIcon(tier));
+            int[] slots = primarySlots();
+            for (int i = 0; i < rewards.size() && i < slots.length; i++) {
+                setItem(slots[i], toIcon(rewards.get(i)));
             }
         }
-
-        setItem(22, icon(Material.ARROW, ChatColor.GREEN + "돌아가기", ChatColor.GRAY + "메인 메뉴로 돌아갑니다."));
     }
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
-        if (event.getRawSlot() == 22) {
+        super.onClick(player, event);
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
+        int slot = event.getRawSlot();
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
+            manager().openMainMenu(player);
+        } else if (slot == mainSlot) {
             manager().openMainMenu(player);
         }
     }
@@ -83,7 +89,6 @@ public final class FarmRewardMenu extends AbstractMenu {
     private org.bukkit.inventory.ItemStack toIcon(FarmRewardService.RewardTier tier) {
         List<String> lore = new ArrayList<>();
         lore.add(ChatColor.GOLD + formatRankRange(tier));
-        lore.add(ChatColor.YELLOW + "달빛 " + formatNumber(tier.moonlight()));
         lore.add(ChatColor.YELLOW + "팜 포인트 " + formatNumber(tier.farmPoints()));
         if (!tier.lore().isEmpty()) {
             lore.add(" ");

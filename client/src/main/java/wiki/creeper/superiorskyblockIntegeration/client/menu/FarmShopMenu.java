@@ -5,6 +5,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -31,37 +32,47 @@ public final class FarmShopMenu extends AbstractMenu {
 
     @Override
     protected int size() {
-        return 27;
+        return 45;
     }
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        fill(icon(Material.GRAY_STAINED_GLASS_PANE, " "));
-
+        decorateDefault(inventory);
+        placeNavigation(backButton("메인 메뉴"), null, mainMenuButton());
         if (items.isEmpty()) {
-            setItem(13, icon(Material.BARRIER,
+            setItem(22, icon(Material.BARRIER,
                     ChatColor.YELLOW + "판매 중인 상품이 없습니다.",
                     ChatColor.GRAY + "관리자가 상점을 설정해야 합니다."));
         } else {
+            int[] contentSlots = primarySlots();
             items.stream()
                     .sorted(Comparator.comparingInt(FarmShopService.ShopItem::slot))
                     .forEach(item -> {
                         int slot = item.slot();
-                        if (slot < 0 || slot >= size()) {
-                            slot = nextAvailableSlot();
+                        if (!isUsableSlot(slot, contentSlots)) {
+                            slot = nextAvailableSlot(contentSlots);
                         }
-                        if (slot >= 0 && slot < size()) {
+                        if (slot >= 0) {
                             setItem(slot, toIcon(item));
                         }
                     });
         }
-
-        setItem(22, icon(Material.ARROW, ChatColor.GREEN + "돌아가기", ChatColor.GRAY + "메인 메뉴로 돌아갑니다."));
     }
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
-        if (event.getRawSlot() == 22) {
+        super.onClick(player, event);
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
+        int slot = event.getRawSlot();
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
+            manager().openMainMenu(player);
+        } else if (slot == mainSlot) {
             manager().openMainMenu(player);
         }
     }
@@ -105,17 +116,34 @@ public final class FarmShopMenu extends AbstractMenu {
             return "";
         }
         return switch (currency.toLowerCase()) {
-            case "moonlight" -> "달빛";
+            case "moonlight" -> "팜 포인트";
             case "farmpoint", "farm_points", "farm" -> "팜 포인트";
             case "none" -> "-";
             default -> currency;
         };
     }
 
-    private int nextAvailableSlot() {
-        for (int i = 0; i < size(); i++) {
-            if (inventory().getItem(i) == null || inventory().getItem(i).getType() == Material.GRAY_STAINED_GLASS_PANE) {
-                return i;
+    private boolean isUsableSlot(int slot, int[] contentSlots) {
+        if (slot < 0 || slot >= size()) {
+            return false;
+        }
+        for (int contentSlot : contentSlots) {
+            if (contentSlot == slot) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int nextAvailableSlot(int[] contentSlots) {
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return -1;
+        }
+        for (int slot : contentSlots) {
+            ItemStack item = inventory.getItem(slot);
+            if (item == null || item.getType() == Material.GRAY_STAINED_GLASS_PANE) {
+                return slot;
             }
         }
         return -1;

@@ -44,36 +44,55 @@ public final class FarmHistoryDetailMenu extends AbstractMenu {
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        fill(icon(Material.GRAY_STAINED_GLASS_PANE, " "));
+        decorateDefault(inventory);
+        placeNavigation(backButton("히스토리"), icon(Material.CLOCK,
+                "&b선택된 시즌",
+                "&7" + (detail.period().displayName().isBlank() ? detail.period().periodId() : detail.period().displayName())),
+                mainMenuButton());
 
         FarmHistoryService.Period period = detail.period();
-        setItem(4, icon(Material.CLOCK,
+        setItem(13, icon(Material.CLOCK,
                 "&a" + (period.displayName().isBlank() ? period.periodId() : period.displayName()),
                 "&7생성: &f" + DATE_FORMAT.format(period.createdAt()),
-                "&7등록된 섬: &f" + period.entries()));
+                "&7등록된 팜: &f" + period.entries()));
 
         List<FarmHistoryService.Entry> entries = detail.entries();
-        int[] slots = {19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34};
+        if (entries == null || entries.isEmpty()) {
+            setItem(22, icon(Material.BARRIER, "&c데이터 없음", "&7해당 기간의 기록이 없습니다."));
+            return;
+        }
+
+        int[] slots = primarySlots();
         for (int i = 0; i < entries.size() && i < slots.length; i++) {
             FarmHistoryService.Entry entry = entries.get(i);
             String rankColor = entry.rank() == 1 ? "&c" : (entry.rank() == 2 ? "&b" : (entry.rank() == 3 ? "&e" : "&a"));
             ItemStack item = icon(Material.PLAYER_HEAD,
                     rankColor + "&l[" + entry.rank() + "위] &f" + displayName(entry),
-                    "&7섬장: &f" + safe(entry.ownerName()),
-                    "&7총 달빛: &f" + format(entry.points()),
-                    "&7일간 달빛: &f" + format(entry.dailyPoints()),
-                    "&7주간 달빛: &f" + format(entry.weeklyPoints()));
+                    "&7팜장: &f" + safe(entry.ownerName()),
+                    "&7총 팜 점수: &f" + format(entry.points()),
+                    "&7일간 팜 점수: &f" + format(entry.dailyPoints()),
+                    "&7주간 팜 점수: &f" + format(entry.weeklyPoints()));
             setItem(slots[i], item);
         }
-
-        setItem(45, icon(Material.ARROW, "&a뒤로", "&7히스토리 목록으로 돌아갑니다."));
     }
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
         super.onClick(player, event);
-        if (event.getRawSlot() == 45) {
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
+        int slot = event.getRawSlot();
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
             manager().openFarmHistory(player, manager().getHistoryPage(player));
+            return;
+        }
+        if (slot == mainSlot) {
+            manager().openMainMenu(player);
         }
     }
 
@@ -90,4 +109,3 @@ public final class FarmHistoryDetailMenu extends AbstractMenu {
         return String.format("%,d", value);
     }
 }
-

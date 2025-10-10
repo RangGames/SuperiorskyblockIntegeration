@@ -7,10 +7,6 @@ import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.Duration;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
 import wiki.creeper.superiorskyblockIntegeration.api.NetworkSkyblockService;
@@ -41,12 +37,15 @@ import wiki.creeper.superiorskyblockIntegeration.gateway.data.GatewayPlayerProfi
 import wiki.creeper.superiorskyblockIntegeration.gateway.data.GatewayQuestService;
 import wiki.creeper.superiorskyblockIntegeration.gateway.data.GatewayRankingService;
 import wiki.creeper.superiorskyblockIntegeration.gateway.data.SqlGatewayDataService;
+import wiki.creeper.superiorskyblockIntegeration.gateway.commands.SpawnCommand;
 import wiki.creeper.superiorskyblockIntegeration.gateway.idempotency.IdempotencyService;
 import wiki.creeper.superiorskyblockIntegeration.gateway.GatewayBusListener;
+import wiki.creeper.superiorskyblockIntegeration.gateway.services.GatewayVelocityService;
 import wiki.creeper.superiorskyblockIntegeration.redis.HmacSigner;
 import wiki.creeper.superiorskyblockIntegeration.redis.MessageSecurity;
 import wiki.creeper.superiorskyblockIntegeration.redis.RedisChannels;
 import wiki.creeper.superiorskyblockIntegeration.redis.RedisManager;
+import wiki.creeper.superiorskyblockIntegeration.gateway.listeners.IslandBlockGeneratorListener;
 
 /**
  * Gateway stands between Redis and the SuperiorSkyblock2 API on the authoritative server.
@@ -60,7 +59,6 @@ public final class GatewayApplication implements ComponentLifecycle {
 
     private RedisChannels channels;
     private MessageSecurity security;
-    private ExecutorService workerPool;
     private GatewaySubscriber subscriber;
     private StatefulRedisPubSubConnection<String, String> subscriptionConnection;
     private GatewayRequestRouter requestRouter;
@@ -69,6 +67,8 @@ public final class GatewayApplication implements ComponentLifecycle {
     private GatewayEventPublisher eventPublisher;
     private GatewaySuperiorSkyblockEventListener ssbListener;
     private wiki.creeper.superiorskyblockIntegeration.gateway.listeners.GatewayFurnaceListener furnaceListener;
+    private IslandBlockGeneratorListener blockGeneratorListener;
+    private GatewayVelocityService velocityService;
     private PlayerIslandCache islandCache;
     private boolean islandServiceRegistered;
     private GatewayDataService dataService;
@@ -77,6 +77,7 @@ public final class GatewayApplication implements ComponentLifecycle {
     private GatewayRankingService rankingService;
     private PlayerMetadataService metadataService;
     private GatewayHeadDataService headDataService;
+    private KickReasonRegistry kickReasons;
     private GatewayBusListener busListener;
     private StatefulRedisPubSubConnection<String, String> busConnection;
     private wiki.creeper.superiorskyblockIntegeration.api.PlayerProfileService profileService;
@@ -122,10 +123,11 @@ public final class GatewayApplication implements ComponentLifecycle {
         this.dataService = new SqlGatewayDataService(database, plugin.getLogger());
         this.rankingService = new GatewayRankingService(plugin, database, bridge, plugin.getLogger());
         this.questService = new GatewayQuestService(dataService, rankingService, bridge);
-        this.metadataService = new GatewayPlayerMetadataService(dataService);
-        this.profileService = new GatewayPlayerProfileService(dataService);
+        this.metadataService = new GatewayPlayerMetadataService(plugin, dataService);
+        this.profileService = new GatewayPlayerProfileService(plugin, dataService);
         this.headDataService = new GatewayHeadDataService(redisManager, channels, plugin.getLogger(), metadataService);
-        this.requestRouter = new GatewayRequestRouter(plugin, redisManager, channels, security, idempotency, config, bridge, eventPublisher, islandCache, dataService, rankingService, questService, metadataService);
+        this.kickReasons = new KickReasonRegistry();
+        this.requestRouter = new GatewayRequestRouter(plugin, redisManager, channels, security, idempotency, config, bridge, eventPublisher, islandCache, dataService, rankingService, questService, metadataService, kickReasons);
         this.busListener = new GatewayBusListener(plugin, plugin.getLogger(), redisManager, channels, headDataService);
         this.networkService = new GatewayNetworkService(plugin, config, requestRouter);
         plugin.getServer().getServicesManager().register(NetworkSkyblockService.class, networkService, plugin, ServicePriority.High);
@@ -139,6 +141,7 @@ public final class GatewayApplication implements ComponentLifecycle {
         this.menuManager.setFarmRewardService(farmRewardService);
         this.farmShopService = new FarmShopService(networkService);
         this.menuManager.setFarmShopService(farmShopService);
+        this.velocityService = new GatewayVelocityService(plugin, config.client().velocity());
         this.menuManager.setMetadataService(metadataService);
         this.questProgressService = new QuestProgressService(plugin, networkService);
         this.menuManager.setQuestProgressService(questProgressService);
@@ -158,26 +161,17 @@ public final class GatewayApplication implements ComponentLifecycle {
             furnaceListener = null;
         }
 
-        ThreadFactory factory = new ThreadFactory() {
-            private final AtomicInteger counter = new AtomicInteger();
+        this.blockGeneratorListener = new IslandBlockGeneratorListener(plugin);
+        plugin.getServer().getPluginManager().registerEvents(blockGeneratorListener, plugin);
 
-            @Override
-            public Thread newThread(Runnable r) {
-                Thread thread = new Thread(r, "SSB2-Gateway-Worker-" + counter.incrementAndGet());
-                thread.setDaemon(true);
-                return thread;
-            }
-        };
-
-        this.workerPool = Executors.newFixedThreadPool(config.gateway().concurrency().workers(), factory);
         this.subscriptionConnection = redisManager.connectPubSub();
-        this.subscriber = new GatewaySubscriber(plugin, security, requestRouter, workerPool);
+        this.subscriber = new GatewaySubscriber(plugin, security, requestRouter);
         subscriber.register(subscriptionConnection, channels.requestPattern());
         this.busConnection = redisManager.connectPubSub();
         busListener.register(busConnection);
 
         if (bridge.isAvailable()) {
-            this.ssbListener = new GatewaySuperiorSkyblockEventListener(plugin, bridge, eventPublisher, islandCache);
+            this.ssbListener = new GatewaySuperiorSkyblockEventListener(plugin, bridge, eventPublisher, islandCache, kickReasons, metadataService, velocityService);
             plugin.getServer().getPluginManager().registerEvents(ssbListener, plugin);
         }
 
@@ -199,6 +193,13 @@ public final class GatewayApplication implements ComponentLifecycle {
             mainCommand.setExecutor(farmCommand);
             mainCommand.setTabCompleter(farmCommand);
         }
+
+        PluginCommand spawnCommand = plugin.getServer().getPluginCommand("spawn");
+        if (spawnCommand != null) {
+            spawnCommand.setExecutor(new SpawnCommand(velocityService));
+        } else {
+            plugin.getLogger().warning("Command '/spawn' is not registered; lobby transfer unavailable.");
+        }
     }
 
     @Override
@@ -215,6 +216,10 @@ public final class GatewayApplication implements ComponentLifecycle {
             menuManager.shutdown();
             menuManager = null;
         }
+        if (blockGeneratorListener != null) {
+            HandlerList.unregisterAll(blockGeneratorListener);
+            blockGeneratorListener = null;
+        }
         questProgressService = null;
         farmRewardService = null;
         farmShopService = null;
@@ -228,9 +233,6 @@ public final class GatewayApplication implements ComponentLifecycle {
                 plugin.getLogger().log(Level.WARNING, "Error while shutting down gateway subscriber", ex);
             }
             subscriber = null;
-        }
-        if (workerPool != null) {
-            workerPool.shutdownNow();
         }
         if (ssbListener != null) {
             ssbListener.shutdown();
@@ -251,6 +253,7 @@ public final class GatewayApplication implements ComponentLifecycle {
             plugin.getServer().getServicesManager().unregister(metadataService);
             metadataService = null;
         }
+        kickReasons = null;
         if (profileService != null) {
             plugin.getServer().getServicesManager().unregister(profileService);
             profileService = null;

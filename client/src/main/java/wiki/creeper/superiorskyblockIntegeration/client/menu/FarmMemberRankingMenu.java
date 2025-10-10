@@ -39,13 +39,13 @@ public final class FarmMemberRankingMenu extends AbstractMenu {
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        ItemStack filler = icon(Material.GRAY_STAINED_GLASS_PANE, " ");
-        fill(filler);
+        decorateDefault(inventory);
+        placeNavigation(backButton("팜 순위"), null, mainMenuButton());
 
         if (members == null || members.isEmpty()) {
             setItem(22, icon(Material.PAPER, "&c데이터 없음", "&7기여도 데이터가 없습니다."));
         } else {
-            int[] slots = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21};
+            int[] slots = primarySlots();
             for (int i = 0; i < members.size() && i < slots.length; i++) {
                 FarmRankingService.MemberEntry entry = members.get(i);
                 ItemStack item = icon(Material.PLAYER_HEAD,
@@ -54,18 +54,25 @@ public final class FarmMemberRankingMenu extends AbstractMenu {
                 setItem(slots[i], item);
             }
         }
-        setItem(45, icon(Material.ARROW, "&a뒤로", "&7팜 순위로 돌아갑니다."));
-        setItem(53, icon(Material.CLOCK, "&e새로 고침", "&7최신 데이터를 불러옵니다."));
     }
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
         super.onClick(player, event);
         int slot = event.getRawSlot();
-        if (slot == 45) {
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
             manager().openFarmRanking(player);
-        } else if (slot == 53) {
-            manager().openFarmMemberRanking(player, islandId);
+            return;
+        }
+        if (slot == mainSlot) {
+            manager().openMainMenu(player);
         }
     }
 

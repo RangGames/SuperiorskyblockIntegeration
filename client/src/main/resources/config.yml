@@ -47,7 +47,7 @@ gateway:
     # 게이트웨이 요청을 비동기로 처리할 워커 스레드 개수입니다.
     workers: 16
   locks:
-    # 섬 관련 연산을 잠글 때 사용하는 TTL 값입니다. 짧을수록 중복 처리 가능성이 높아집니다 (밀리초).
+    # 팜 관련 연산을 잠글 때 사용하는 TTL 값입니다. 짧을수록 중복 처리 가능성이 높아집니다 (밀리초).
     islandLockTtlMs: 2000
   superiorSkyblock:
     # SuperiorSkyblock API 호출이 메인 스레드에서 기다릴 최대 시간입니다 (밀리초).
@@ -75,3 +75,5 @@ client:
     enabled: false
     # 사용 시 플레이어를 이동시킬 대상 서버 이름입니다.
     targetServer: skyblock
+    # /spawn 명령 등 로비 이동에 사용할 서버 이름입니다.
+    lobbyServer: lobby

@@ -107,7 +107,13 @@ public final class PluginConfig {
                         Math.max(1, config.getInt("gateway.database.hikari.maximumPoolSize", 10)),
                         Math.max(0, config.getInt("gateway.database.hikari.minimumIdle", 2)),
                         Math.max(1000L, config.getLong("gateway.database.hikari.connectionTimeoutMs", 5000L)),
-                        Math.max(0L, config.getLong("gateway.database.hikari.idleTimeoutMs", 600_000L))
+                        Math.max(0L, config.getLong("gateway.database.hikari.idleTimeoutMs", 600_000L)),
+                        Math.max(30_000L, config.getLong("gateway.database.hikari.maxLifetimeMs", 1_740_000L)),
+                        Math.max(0L, config.getLong("gateway.database.hikari.keepaliveTimeMs", 300_000L)),
+                        Math.max(0L, config.getLong("gateway.database.hikari.leakDetectionThresholdMs", 0L)),
+                        Math.max(1000L, config.getLong("gateway.database.hikari.validationTimeoutMs", 5000L)),
+                        Math.max(0L, config.getLong("gateway.database.hikari.socketTimeoutMs", 600_000L)),
+                        config.getBoolean("gateway.database.hikari.tcpKeepAlive", true)
                 )
         );
         GatewaySettings gateway = new GatewaySettings(
@@ -131,7 +137,8 @@ public final class PluginConfig {
                 ),
                 new VelocitySettings(
                         config.getBoolean("client.velocity.enabled", false),
-                        config.getString("client.velocity.targetServer", "skyblock")
+                        config.getString("client.velocity.targetServer", "skyblock"),
+                        config.getString("client.velocity.lobbyServer", "lobby")
                 )
         );
         QuestSettings quest = QuestSettings.parse(config);
@@ -196,7 +203,13 @@ public final class PluginConfig {
     public record HikariSettings(int maximumPoolSize,
                                  int minimumIdle,
                                  long connectionTimeoutMs,
-                                 long idleTimeoutMs) { }
+                                 long idleTimeoutMs,
+                                 long maxLifetimeMs,
+                                 long keepaliveTimeMs,
+                                 long leakDetectionThresholdMs,
+                                 long validationTimeoutMs,
+                                 long socketTimeoutMs,
+                                 boolean tcpKeepAlive) { }
 
     public record RewardSettings(java.util.List<wiki.creeper.superiorskyblockIntegeration.common.model.FarmRankingReward> farmRanking) {
 
@@ -210,9 +223,10 @@ public final class PluginConfig {
                 String icon = asString(map.get("icon"), "CHEST");
                 int moonlight = asInt(map.get("moonlight"), 0);
                 int farmPoints = asInt(map.get("farmPoints"), 0);
+                int mergedFarmPoints = Math.max(0, moonlight) + Math.max(0, farmPoints);
                 java.util.List<String> lore = asStringList(map.get("lore"));
                 rewards.add(new wiki.creeper.superiorskyblockIntegeration.common.model.FarmRankingReward(
-                        minRank, maxRank, title, icon, moonlight, farmPoints, lore));
+                        minRank, maxRank, title, icon, mergedFarmPoints, lore));
             }
             return new RewardSettings(java.util.List.copyOf(rewards));
         }
@@ -259,6 +273,9 @@ public final class PluginConfig {
                 String title = asString(map.get("title"), "&f아이템");
                 String icon = asString(map.get("icon"), "BARRIER");
                 String currency = asString(map.get("currency"), "none");
+                if ("moonlight".equalsIgnoreCase(currency)) {
+                    currency = "farmpoint";
+                }
                 int price = asInt(map.get("price"), 0);
                 String command = asString(map.get("command"), "");
                 java.util.List<String> lore = asStringList(map.get("lore"));
@@ -327,7 +344,7 @@ public final class PluginConfig {
 
     public record RetrySettings(int attempts, int backoffMs) { }
 
-    public record VelocitySettings(boolean enabled, String targetServer) { }
+    public record VelocitySettings(boolean enabled, String targetServer, String lobbyServer) { }
 
     public record QuestSettings(FarmPointSettings farmPoints, FurnaceSettings furnace) {
 

@@ -23,6 +23,9 @@ import java.util.UUID;
  */
 abstract class AbstractMenu {
 
+    private static final Material DEFAULT_BACKGROUND = Material.GRAY_STAINED_GLASS_PANE;
+    private static final Material DEFAULT_FRAME = Material.BLACK_STAINED_GLASS_PANE;
+
     private final IslandMenuManager manager;
     private Inventory inventory;
     private UUID viewer;
@@ -120,6 +123,62 @@ abstract class AbstractMenu {
         for (int i = 0; i < inventory.getSize(); i++) {
             inventory.setItem(i, filler != null ? filler.clone() : null);
         }
+    }
+
+    protected ItemStack glass(Material material) {
+        return icon(material, " ");
+    }
+
+    protected void decorateDefault(Inventory inventory) {
+        decorate(inventory, DEFAULT_BACKGROUND, DEFAULT_FRAME);
+    }
+
+    protected void decorate(Inventory inventory, Material background, Material frame) {
+        if (inventory == null) {
+            return;
+        }
+        ItemStack backgroundItem = glass(background);
+        fill(backgroundItem);
+        MenuLayouts.applyFrame(this, inventory, glass(frame));
+    }
+
+    protected int[] primarySlots() {
+        Inventory inventory = inventory();
+        int size = inventory != null ? inventory.getSize() : size();
+        return MenuLayouts.primarySlots(size);
+    }
+
+    protected void placeNavigation(ItemStack left, ItemStack middle, ItemStack right) {
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
+        int size = inventory.getSize();
+        if (size >= 9 && left != null) {
+            setItem(size - 9, left);
+        }
+        if (size >= 5 && middle != null) {
+            setItem(size - 5, middle);
+        }
+        if (size >= 1 && right != null) {
+            setItem(size - 1, right);
+        }
+    }
+
+    protected ItemStack backButton(String target) {
+        return icon(Material.ARROW, "&a뒤로가기", "&7" + target + "으로 돌아갑니다.");
+    }
+
+    protected ItemStack closeButton() {
+        return icon(Material.BARRIER, "&c닫기", "&7메뉴를 닫습니다.");
+    }
+
+    protected ItemStack refreshButton() {
+        return icon(Material.CLOCK, "&e새로 고침", "&7최신 정보를 다시 불러옵니다.");
+    }
+
+    protected ItemStack mainMenuButton() {
+        return icon(Material.COMPASS, "&a메인 메뉴", "&7팜 관리 홈으로 이동합니다.");
     }
 
     protected void runSync(Runnable runnable) {

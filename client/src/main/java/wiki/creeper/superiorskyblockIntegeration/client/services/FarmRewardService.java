@@ -58,13 +58,14 @@ public final class FarmRewardService {
             String icon = entry.has("icon") ? entry.get("icon").getAsString() : "CHEST";
             int moonlight = entry.has("moonlight") ? entry.get("moonlight").getAsInt() : 0;
             int farmPoints = entry.has("farmPoints") ? entry.get("farmPoints").getAsInt() : 0;
+            int points = Math.max(0, moonlight) + Math.max(0, farmPoints);
             List<String> lore = new ArrayList<>();
             if (entry.has("lore") && entry.get("lore").isJsonArray()) {
                 for (JsonElement line : entry.getAsJsonArray("lore")) {
                     lore.add(line.getAsString());
                 }
             }
-            tiers.add(new RewardTier(minRank, maxRank, title, icon, moonlight, farmPoints, Collections.unmodifiableList(lore)));
+            tiers.add(new RewardTier(minRank, maxRank, title, icon, points, Collections.unmodifiableList(lore)));
         }
         return Collections.unmodifiableList(tiers);
     }
@@ -73,7 +74,6 @@ public final class FarmRewardService {
                              int maxRank,
                              String title,
                              String icon,
-                             int moonlight,
                              int farmPoints,
                              List<String> lore) { }
 }

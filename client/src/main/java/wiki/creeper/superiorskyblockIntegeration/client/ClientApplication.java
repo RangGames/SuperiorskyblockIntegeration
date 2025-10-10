@@ -24,6 +24,7 @@ import wiki.creeper.superiorskyblockIntegeration.client.services.ClientHeadDataS
 import wiki.creeper.superiorskyblockIntegeration.client.services.FarmRankingService;
 import wiki.creeper.superiorskyblockIntegeration.client.services.FarmRewardService;
 import wiki.creeper.superiorskyblockIntegeration.client.services.FarmShopService;
+import wiki.creeper.superiorskyblockIntegeration.client.services.PlayerPresenceService;
 import wiki.creeper.superiorskyblockIntegeration.client.services.NetworkPlayerMetadataService;
 import wiki.creeper.superiorskyblockIntegeration.client.services.NetworkPlayerProfileService;
 import wiki.creeper.superiorskyblockIntegeration.client.services.QuestProgressService;
@@ -44,6 +45,7 @@ public final class ClientApplication implements ComponentLifecycle {
     private final PluginConfig config;
     private final RedisManager redisManager;
     private final Messages messages;
+    private PlayerPresenceService presenceService;
 
     private RedisChannels channels;
     private MessageSecurity security;
@@ -73,6 +75,7 @@ public final class ClientApplication implements ComponentLifecycle {
     @Override
     public void start() {
         wiki.creeper.superiorskyblockIntegeration.common.quest.QuestRewards.configure(config.quest());
+        this.presenceService = new PlayerPresenceService(plugin);
         this.channels = new RedisChannels(config.channels().prefix());
         this.security = new MessageSecurity(new HmacSigner(config.security().hmacSecret()));
         this.cache = new ClientCache(config.client().cache());
@@ -92,7 +95,11 @@ public final class ClientApplication implements ComponentLifecycle {
         this.metadataService = new NetworkPlayerMetadataService(networkService);
         this.menuManager.setMetadataService(metadataService);
         this.profileService = new NetworkPlayerProfileService(networkService);
-        this.headDataService = new ClientHeadDataService(redisManager, channels, metadataService);
+        this.headDataService = new ClientHeadDataService(plugin, redisManager, channels, metadataService);
+        this.menuManager.setHeadDataService(headDataService);
+        if (presenceService != null) {
+            this.menuManager.setPresenceService(presenceService);
+        }
         this.listener = new ClientRedisListener(plugin, security, channels, pendingRequests, cache, headDataService, menuManager, messages);
         this.playerListener = new ClientPlayerListener(plugin, networkService, headDataService);
         ChestSortIntegrationListener chestSort = new ChestSortIntegrationListener(plugin);

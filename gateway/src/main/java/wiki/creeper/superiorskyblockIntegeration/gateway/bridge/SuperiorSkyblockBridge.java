@@ -2,6 +2,8 @@ package wiki.creeper.superiorskyblockIntegeration.gateway.bridge;
 
 import com.google.gson.JsonObject;
 
+import java.math.BigDecimal;
+import org.bukkit.Location;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +29,8 @@ public interface SuperiorSkyblockBridge {
 
     GatewayResponse listMembers(UUID requester, Optional<String> islandIdentifier, JsonObject payload);
 
+    GatewayResponse kickMember(UUID actorUuid, UUID targetUuid, String reason, JsonObject payload);
+
     Optional<UUID> islandIdForPlayer(UUID playerUuid);
 
     Map<UUID, UUID> snapshotPlayerIslands();
@@ -48,6 +52,56 @@ public interface SuperiorSkyblockBridge {
     void broadcastIslandMessage(UUID islandUuid, java.util.List<String> messages);
 
     GatewayResponse disbandIsland(UUID actorUuid);
+
+    GatewayResponse bankState(UUID actorUuid);
+
+    GatewayResponse bankDeposit(UUID actorUuid, BigDecimal amount);
+
+    GatewayResponse bankWithdraw(UUID actorUuid, BigDecimal amount);
+
+    GatewayResponse bankHistory(UUID actorUuid, int page, int pageSize);
+
+    GatewayResponse hopperState(UUID actorUuid);
+
+    GatewayResponse updateIslandRating(UUID actorUuid, int rating);
+
+    GatewayResponse listHomeWarps(UUID actorUuid);
+
+    GatewayResponse createHomeWarp(UUID actorUuid, String name, Location location);
+
+    GatewayResponse deleteHomeWarp(UUID actorUuid, String warpName);
+
+    GatewayResponse renameHomeWarp(UUID actorUuid, String warpName, String newName);
+
+    GatewayResponse toggleHomeWarpPrivacy(UUID actorUuid, String warpName);
+
+    GatewayResponse listPlayerWarps(UUID actorUuid, String targetIdentifier);
+
+    GatewayResponse listGlobalWarps(UUID actorUuid, int page, int pageSize);
+
+    GatewayResponse visitWarp(UUID actorUuid, String islandIdentifier, String warpName);
+
+    GatewayResponse listRolePermissions(UUID actorUuid);
+
+    GatewayResponse updateRolePermission(UUID actorUuid, String roleName, String privilegeName, boolean enabled);
+
+    GatewayResponse listCoopPlayers(UUID actorUuid);
+
+    GatewayResponse addCoopPlayer(UUID actorUuid, String targetIdentifier);
+
+    GatewayResponse removeCoopPlayer(UUID actorUuid, String targetIdentifier);
+
+    GatewayResponse listBannedPlayers(UUID actorUuid);
+
+    GatewayResponse addBannedPlayer(UUID actorUuid, String targetIdentifier);
+
+    GatewayResponse removeBannedPlayer(UUID actorUuid, String targetIdentifier);
+
+    GatewayResponse adminResetPermissions(UUID actorUuid, String playerIdentifier);
+
+    GatewayResponse adminLookupIslandUuid(String playerIdentifier);
+
+    GatewayResponse adminLookupIslandOwner(String islandIdentifier);
 
     record IslandDetails(UUID islandUuid, String name, UUID ownerUuid, String ownerName) {
     }

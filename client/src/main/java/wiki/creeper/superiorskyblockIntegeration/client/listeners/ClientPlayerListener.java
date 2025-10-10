@@ -3,10 +3,12 @@ package wiki.creeper.superiorskyblockIntegeration.client.listeners;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.event.entity.PlayerDeathEvent;
 
+import java.time.Duration;
 import java.util.UUID;
 
 import wiki.creeper.superiorskyblockIntegeration.api.PlayerMetadataService;
@@ -40,6 +42,9 @@ public final class ClientPlayerListener implements Listener {
         if (metadata != null) {
             metadata.put(uuid, "player.uuid", uuid.toString(), null);
             metadata.put(uuid, "player.name", event.getPlayer().getName(), null);
+            metadata.put(uuid, "presence.online", "true", null);
+            metadata.put(uuid, "presence.server", plugin.getServer().getName(), null);
+            metadata.put(uuid, "presence.lastSeen", Long.toString(System.currentTimeMillis()), null);
         }
         NetworkPlayerIslands.forPlayer(uuid).thenAccept(opt -> {
             if (opt.isPresent()) {
@@ -65,6 +70,18 @@ public final class ClientPlayerListener implements Listener {
             plugin.getLogger().log(java.util.logging.Level.WARNING, "Failed to resolve island for " + uuid, ex);
             return null;
         });
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        PlayerMetadataService metadata = headDataService.getMetadataService();
+        if (metadata == null) {
+            return;
+        }
+        metadata.put(uuid, "presence.online", "false", Duration.ofHours(24));
+        metadata.put(uuid, "presence.lastSeen", Long.toString(System.currentTimeMillis()), Duration.ofHours(24));
+        metadata.delete(uuid, "presence.server");
     }
 
     @EventHandler

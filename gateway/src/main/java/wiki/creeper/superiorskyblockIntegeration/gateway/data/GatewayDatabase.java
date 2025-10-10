@@ -34,6 +34,25 @@ public final class GatewayDatabase implements AutoCloseable {
         config.setMinimumIdle(Math.max(0, Math.min(settings.hikari().minimumIdle(), settings.hikari().maximumPoolSize())));
         config.setConnectionTimeout(Math.max(1000L, settings.hikari().connectionTimeoutMs()));
         config.setIdleTimeout(Math.max(0L, settings.hikari().idleTimeoutMs()));
+        long maxLifetime = Math.max(30_000L, settings.hikari().maxLifetimeMs());
+        config.setMaxLifetime(maxLifetime);
+
+        long keepalive = Math.max(0L, settings.hikari().keepaliveTimeMs());
+        if (keepalive > 0L) {
+            // Clamp to a safe range so keepalive stays below maxLifetime and above Hikari's 30s minimum.
+            long minimumKeepalive = 30_000L;
+            long ceiling = Math.max(minimumKeepalive, maxLifetime - 120_000L);
+            long safeKeepalive = Math.min(Math.max(minimumKeepalive, keepalive), ceiling);
+            if (safeKeepalive >= minimumKeepalive && safeKeepalive < maxLifetime) {
+                config.setKeepaliveTime(safeKeepalive);
+            }
+        }
+
+        config.setValidationTimeout(Math.max(1000L, settings.hikari().validationTimeoutMs()));
+        long leakDetectionThreshold = Math.max(0L, settings.hikari().leakDetectionThresholdMs());
+        if (leakDetectionThreshold > 0L) {
+            config.setLeakDetectionThreshold(leakDetectionThreshold);
+        }
         config.setDriverClassName("com.mysql.cj.jdbc.Driver");
         config.setInitializationFailTimeout(-1L);
         config.addDataSourceProperty("cachePrepStmts", "true");
@@ -46,6 +65,11 @@ public final class GatewayDatabase implements AutoCloseable {
         config.addDataSourceProperty("cacheServerConfiguration", "true");
         config.addDataSourceProperty("elideSetAutoCommits", "true");
         config.addDataSourceProperty("maintainTimeStats", "false");
+        long socketTimeout = Math.max(0L, settings.hikari().socketTimeoutMs());
+        if (socketTimeout > 0L) {
+            config.addDataSourceProperty("socketTimeout", Long.toString(socketTimeout));
+        }
+        config.addDataSourceProperty("tcpKeepAlive", Boolean.toString(settings.hikari().tcpKeepAlive()));
 
         this.dataSource = new HikariDataSource(config);
     }

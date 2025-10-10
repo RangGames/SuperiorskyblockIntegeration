@@ -30,8 +30,11 @@ final class PendingInvitesMenu extends AbstractMenu {
 
     @Override
     protected void build(Player player, Inventory inventory) {
-        fill(icon(Material.GRAY_STAINED_GLASS_PANE, " "));
+        decorateDefault(inventory);
         setItem(22, icon(Material.COMPASS, "&e초대 목록을 불러오는 중", "&7잠시만 기다려주세요."));
+        placeNavigation(backButton("메인 메뉴"), icon(Material.NAME_TAG,
+                "&b초대 보내기",
+                "&7닉네임을 직접 입력해 초대를 보냅니다."), mainMenuButton());
     }
 
     @Override
@@ -49,6 +52,10 @@ final class PendingInvitesMenu extends AbstractMenu {
             return;
         }
         inventory.clear();
+        decorateDefault(inventory);
+        placeNavigation(backButton("메인 메뉴"), icon(Material.NAME_TAG,
+                "&b초대 보내기",
+                "&7닉네임을 직접 입력해 초대를 보냅니다."), mainMenuButton());
 
         if (result == null || result.failed()) {
             String code = result != null ? result.errorCode() : "UNKNOWN";
@@ -68,7 +75,8 @@ final class PendingInvitesMenu extends AbstractMenu {
             return;
         }
 
-        int slot = 0;
+        int[] slots = primarySlots();
+        int index = 0;
         for (JsonElement element : invites) {
             if (!element.isJsonObject()) {
                 continue;
@@ -78,6 +86,10 @@ final class PendingInvitesMenu extends AbstractMenu {
             if (entry == null) {
                 continue;
             }
+            if (index >= slots.length) {
+                break;
+            }
+            int slot = slots[index++];
             setItem(slot, withStringTag(icon(Material.BOOK,
                     "&a&l" + entry.islandName(),
                     "&7팜장: &f" + entry.ownerName(),
@@ -86,16 +98,34 @@ final class PendingInvitesMenu extends AbstractMenu {
                     "&e좌클릭 &7수락",
                     "&c우클릭 &7거절"),
                     "invite-id", entry.islandId()));
-            slot++;
-            if (slot >= inventory.getSize()) {
-                break;
-            }
         }
     }
 
     @Override
     protected void onClick(Player player, InventoryClickEvent event) {
         super.onClick(player, event);
+        Inventory inventory = inventory();
+        if (inventory == null) {
+            return;
+        }
+        int slot = event.getRawSlot();
+        int size = inventory.getSize();
+        int backSlot = size - 9;
+        int middleSlot = size - 5;
+        int mainSlot = size - 1;
+        if (slot == backSlot) {
+            manager().openMainMenu(player);
+            return;
+        }
+        if (slot == middleSlot) {
+            manager().openMenu(player, new InviteMenu(manager()));
+            return;
+        }
+        if (slot == mainSlot) {
+            manager().openMainMenu(player);
+            return;
+        }
+
         ItemStack clicked = event.getCurrentItem();
         if (clicked == null) {
             return;
@@ -105,9 +135,9 @@ final class PendingInvitesMenu extends AbstractMenu {
             return;
         }
         if (event.isLeftClick()) {
-            processInvite(player, event.getRawSlot(), inviteId, true);
+            processInvite(player, slot, inviteId, true);
         } else if (event.isRightClick()) {
-            processInvite(player, event.getRawSlot(), inviteId, false);
+            processInvite(player, slot, inviteId, false);
         }
     }
 
